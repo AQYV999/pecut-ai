@@ -2,12 +2,13 @@
   "name": "pecut-ai",
   "version": "0.1.0",
   "private": true,
-  "description": "Pecut AI â€” AI productivity & workflow workspace",
+  "description": "Pecut AI — AI productivity & workflow workspace",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/templates.test.js tests/helpers.test.js tests/optimizer.test.js tests/storage.test.js"
   },
   "devDependencies": {
     "vite": "^5.4.0"
