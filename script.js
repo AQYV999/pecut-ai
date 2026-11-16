@@ -161,11 +161,33 @@ const TEMPLATES_DATA = [
   }
 ];
 
-// --- STATE MANAGEMENT --- 
+// --- STATE MANAGEMENT ---
+// SECURITY: legacy `apiKey` (and the removed `provider` UI field) are
+// stripped from persisted settings. Secrets must never live in the browser.
+function loadSettings() {
+  let parsed;
+  try {
+    parsed = JSON.parse(localStorage.getItem('pecut_settings') || '{}');
+  } catch (_) {
+    parsed = {};
+  }
+  if (parsed && ('apiKey' in parsed || 'provider' in parsed)) {
+    delete parsed.apiKey;
+    delete parsed.provider;
+    localStorage.setItem('pecut_settings', JSON.stringify(parsed));
+  }
+  return {
+    theme: parsed.theme || 'dark',
+    language: parsed.language || 'id',
+    tone: parsed.tone || 'Professional & Authoritative',
+    format: parsed.format || 'Markdown Report'
+  };
+}
+
 let appState = {
   savedPrompts: JSON.parse(localStorage.getItem('pecut_saved_prompts') || '[]'),
   history: JSON.parse(localStorage.getItem('pecut_history') || '[]'),
-  settings: JSON.parse(localStorage.getItem('pecut_settings') || '{\n    "theme": "dark",\n    "language": "id",\n    "tone": "Professional & Authoritative",\n    "format": "Markdown Report",\n    "provider": "demo",\n    "apiKey": ""\n  }')
+  settings: loadSettings()
 };
 
 function saveState() {
@@ -400,7 +422,23 @@ function initOptimizer() {
 
     document.getElementById('optimizedOutputText').textContent = optimized;
     
-    const report = `PROMPT OPTIMIZATION REPORT\n---------------------------------------\n- Original Length: ${rawInput.length} characters\n- Optimized Length: ${optimized.length} characters\n- Active Focus Goals: ${goals.join(', ')}\n- Clarity Score: Improved from 42% to 94%\n- Structure Assessment: Converted unstructured text into modular Markdown sections (Role, Objective, Context, Instructions, Constraints).\n- Recommendation: Ready for production deployment with GPT-4, Gemini 1.5 Pro, or Claude 3.5 Sonnet.`;
+    const metrics = analyzePromptLocally(rawInput);
+    const report =
+      `LOCAL STRUCTURAL ANALYSIS (no AI model used)\n` +
+      `------------------------------------------------\n` +
+      `This report is produced by a rule-based local analyzer. It does NOT\n` +
+      `call an AI model and does NOT measure true output quality.\n\n` +
+      `- Original length: ${rawInput.length} characters / ${metrics.words} words\n` +
+      `- Active focus goals: ${goals.length ? goals.join(', ') : '(none selected)'}\n` +
+      `- Detected sections: ${metrics.sections.length ? metrics.sections.join(', ') : 'none'}\n` +
+      `- Has explicit output format: ${metrics.hasOutput ? 'yes' : 'no'}\n` +
+      `- Has constraints/rules: ${metrics.hasConstraints ? 'yes' : 'no'}\n` +
+      `- Has role/persona: ${metrics.hasRole ? 'yes' : 'no'}\n` +
+      `- Vague-phrase count: ${metrics.vagueHits}\n\n` +
+      `The structured version above adds standard sections (Role, Objective,\n` +
+      `Context, Instructions, Constraints, Output Format). Whether it is\n` +
+      `better depends on your task. For genuine AI optimization, configure\n` +
+      `a provider on the server (see README / .env.example).`;
     
     document.getElementById('analysisReportContent').innerHTML = `<pre style="font-family:var(--font-mono); font-size:0.85rem; color:var(--text-secondary); white-space:pre-wrap;">${report}</pre>`;
 
@@ -760,33 +798,16 @@ function initSettings() {
   document.getElementById('settingLanguage').value = s.language || 'id';
   document.getElementById('settingTone').value = s.tone || 'Professional & Authoritative';
   document.getElementById('settingFormat').value = s.format || 'Markdown Report';
-  document.getElementById('settingProvider').value = s.provider || 'demo';
-  document.getElementById('settingApiKey').value = s.apiKey || '';
 
-  const providerSelect = document.getElementById('settingProvider');
-  const apiKeyGroup = document.getElementById('apiKeyGroup');
-  
-  function checkProvider() {
-    if (providerSelect.value === 'demo') {
-      apiKeyGroup.style.display = 'none';
-      document.getElementById('apiStatusText').textContent = 'Demo Engine Active';
-    } else {
-      apiKeyGroup.style.display = 'block';
-      document.getElementById('apiStatusText').textContent = `${providerSelect.options[providerSelect.selectedIndex].text.split(' ')[0]} Ready`;
-    }
-  }
-  providerSelect.addEventListener('change', checkProvider);
-  checkProvider();
+  // Provider status is server-controlled. No browser-side secret storage.
+  document.getElementById('apiStatusText').textContent = 'Demo Engine Active';
 
-  // Save listeners
-  ['settingTheme', 'settingLanguage', 'settingTone', 'settingFormat', 'settingProvider', 'settingApiKey'].forEach(id => {
+  ['settingTheme', 'settingLanguage', 'settingTone', 'settingFormat'].forEach(id => {
     document.getElementById(id).addEventListener('change', () => {
       appState.settings.theme = document.getElementById('settingTheme').value;
       appState.settings.language = document.getElementById('settingLanguage').value;
       appState.settings.tone = document.getElementById('settingTone').value;
       appState.settings.format = document.getElementById('settingFormat').value;
-      appState.settings.provider = document.getElementById('settingProvider').value;
-      appState.settings.apiKey = document.getElementById('settingApiKey').value;
       saveState();
       showToast('Settings saved successfully!');
     });
@@ -874,6 +895,36 @@ function openCmdPalette() {
   modal.classList.add('active');
   document.getElementById('cmdPaletteInput').value = '';
   document.getElementById('cmdPaletteInput').focus();
+}
+
+// --- LOCAL PROMPT ANALYSIS (rule-based, no AI) ---
+// Deterministic structural inspection of a prompt string. Used by the
+// Optimizer to give honest, non-fabricated feedback in Demo Mode.
+function analyzePromptLocally(text) {
+  const lower = text.toLowerCase();
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+
+  const sectionDefs = [
+    { label: 'Role/Persona', re: /(^|\n)\s*(#+\s*)?(role|persona|act as)\b/i },
+    { label: 'Objective', re: /(^|\n)\s*(#+\s*)?(objective|goal|task)\b/i },
+    { label: 'Context', re: /(^|\n)\s*(#+\s*)?(context|background)\b/i },
+    { label: 'Instructions', re: /(^|\n)\s*(#+\s*)?(instructions|steps)\b/i },
+    { label: 'Constraints', re: /(^|\n)\s*(#+\s*)?(constraints|rules|do not|avoid)\b/i },
+    { label: 'Output Format', re: /(^|\n)\s*(#+\s*)?(output format|format|respond with)\b/i }
+  ];
+
+  const sections = sectionDefs.filter(s => s.re.test(text)).map(s => s.label);
+  const vagueTerms = ['good', 'nice', 'better', 'stuff', 'things', 'etc', 'bagus', 'lengkap'];
+  const vagueHits = vagueTerms.reduce((n, t) => n + (lower.split(t).length - 1), 0);
+
+  return {
+    words,
+    sections,
+    hasRole: sections.includes('Role/Persona'),
+    hasOutput: sections.includes('Output Format'),
+    hasConstraints: sections.includes('Constraints'),
+    vagueHits
+  };
 }
 
 // --- UTILS ---

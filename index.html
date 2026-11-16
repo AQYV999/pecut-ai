@@ -543,23 +543,9 @@
             </div>
 
             <div class="settings-card" style="margin-top: 2rem;">
-              <h3>API Integration Foundation (Provider Abstraction)</h3>
-              <p>Configure connection endpoints for future LLM integration. Currently running in Local Deterministic Demo Mode.</p>
-              
-              <div class="form-group" style="margin-top: 1.5rem;">
-                <label for="settingProvider">LLM Provider</label>
-                <select id="settingProvider">
-                  <option value="demo">Local Deterministic Engine (Demo Mode)</option>
-                  <option value="openai">OpenAI API (GPT-4o / GPT-4 Turbo)</option>
-                  <option value="gemini">Google Gemini API (Gemini 1.5 Pro)</option>
-                  <option value="anthropic">Anthropic API (Claude 3.5 Sonnet)</option>
-                </select>
-              </div>
-              <div class="form-group" id="apiKeyGroup" style="display:none; margin-top: 1rem;">
-                <label for="settingApiKey">API Key (Encrypted Locally)</label>
-                <input type="password" id="settingApiKey" placeholder="sk-...">
-                <small class="text-muted">API keys never leave your browser session and are never transmitted to external logging servers.</small>
-              </div>
+              <h3>AI Provider (Server-Side)</h3>
+              <p>This build runs in <strong>Local Demo Mode</strong>. AI provider credentials are configured exclusively on the server (Supabase Edge Functions) via environment variables â€” never in the browser.</p>
+              <small class="text-muted">API keys are not stored in, nor accepted from, the frontend. See README and .env.example for server configuration.</small>
             </div>
 
             <div class="settings-card" style="margin-top: 2rem;">
