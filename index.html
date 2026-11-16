@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pecut AI â€” Intelligent Prompt Engineering &amp; Workflow Workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <a href="#" class="logo" data-nav="overview">
+          Pecut<span>AI</span>
+        </a>
+        <button type="button" class="mobile-close-btn" id="mobileCloseBtn" aria-label="Close menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="sidebar-search-trigger" id="cmdPaletteTrigger">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Quick Search...</span>
+        <kbd>Ctrl K</kbd>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-category">Workspace</div>
+        <a href="#overview" class="nav-item active" data-nav="overview">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Overview
+        </a>
+        <a href="#builder" class="nav-item" data-nav="builder">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Prompt Builder
+          <span class="badge-pro">Pro</span>
+        </a>
+        <a href="#optimizer" class="nav-item" data-nav="optimizer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Prompt Optimizer
+        </a>
+
+        <div class="nav-category">Management</div>
+        <a href="#library" class="nav-item" data-nav="library">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Prompt Library
+          <span class="nav-badge" id="libCountBadge">0</span>
+        </a>
+        <a href="#templates" class="nav-item" data-nav="templates">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Templates
+          <span class="nav-badge">22</span>
+        </a>
+        <a href="#history" class="nav-item" data-nav="history">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          History
+        </a>
+
+        <div class="nav-category">System</div>
+        <a href="#settings" class="nav-item" data-nav="settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Settings
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-mini-card">
+          <div class="user-avatar">PM</div>
+          <div class="user-info">
+            <div class="user-name">Mas Mul</div>
+            <div class="user-plan">Pro Workspace</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="main-wrapper">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button type="button" class="mobile-toggle" id="mobileToggle" aria-label="Open menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <h1 class="view-title" id="viewTitle">Overview</h1>
+        </div>
+        <div class="topbar-right">
+          <div class="api-status-badge">
+            <span class="status-dot"></span>
+            <span id="apiStatusText">Demo Engine Active</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" id="quickNewPromptBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Prompt
+          </button>
+        </div>
+      </header>
+
+      <main class="content-area">
+
+        <!-- VIEW 1: OVERVIEW -->
+        <section class="view-section active" id="view-overview">
+          <div class="welcome-banner">
+            <div class="welcome-text">
+              <h2>Welcome back, Mas Mul.</h2>
+              <p>Your intelligent workspace is optimized and ready. You have saved <span id="statSavedCount">0</span> prompts and <span id="statHistoryCount">0</span> recent workflow executions.</p>
+            </div>
+            <div class="welcome-actions">
+              <button type="button" class="btn btn-primary" data-nav-target="builder">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Open Prompt Builder
+              </button>
+              <button type="button" class="btn btn-secondary" data-nav-target="templates">
+                Explore Templates
+              </button>
+            </div>
+          </div>
+
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-header">
+                <span>Saved Prompts</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <div class="metric-value" id="metricSaved">0</div>
+              <div class="metric-sub">In local library</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-header">
+                <span>Available Templates</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
+              </div>
+              <div class="metric-value">22</div>
+              <div class="metric-sub">Ready-to-use presets</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-header">
+                <span>Total Executions</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </div>
+              <div class="metric-value" id="metricExecutions">0</div>
+              <div class="metric-sub">Logged in history</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-header">
+                <span>Favorites</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              </div>
+              <div class="metric-value" id="metricFavorites">0</div>
+              <div class="metric-sub">Pinned items</div>
+            </div>
+          </div>
+
+          <div class="dashboard-grid-2">
+            <div class="dash-card">
+              <div class="dash-card-header">
+                <h3>Quick Actions</h3>
+                <span>Shortcuts</span>
+              </div>
+              <div class="quick-actions-list">
+                <button type="button" class="quick-action-item" data-nav-target="builder">
+                  <div class="qa-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                  </div>
+                  <div>
+                    <h4>Create Structured Prompt</h4>
+                    <p>Build custom prompt with persona, objective &amp; constraints</p>
+                  </div>
+                </button>
+                <button type="button" class="quick-action-item" data-nav-target="optimizer">
+                  <div class="qa-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  </div>
+                  <div>
+                    <h4>Optimize Existing Prompt</h4>
+                    <p>Enhance clarity, structure and output control</p>
+                  </div>
+                </button>
+                <button type="button" class="quick-action-item" data-nav-target="templates">
+                  <div class="qa-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
+                  </div>
+                  <div>
+                    <h4>Browse Template Library</h4>
+                    <p>Select from 22+ professional use-case templates</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div class="dash-card">
+              <div class="dash-card-header">
+                <h3>Recent Activity</h3>
+                <a href="#history" data-nav-target="history">View all</a>
+              </div>
+              <div class="recent-history-list" id="recentHistoryList">
+                <div class="empty-state-sm">No recent activity yet. Run a prompt in Builder or Optimizer.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 2: PROMPT BUILDER -->
+        <section class="view-section" id="view-builder">
+          <div class="builder-layout">
+            <div class="builder-form-pane">
+              <div class="pane-header">
+                <h2>Structured Prompt Builder</h2>
+                <p>Configure each parameter to generate a deterministic, high-performance prompt.</p>
+              </div>
+
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="builderRole">Role / Persona</label>
+                  <input type="text" id="builderRole" placeholder="e.g. Senior Full-Stack Engineer &amp; Architecture Critic">
+                </div>
+                <div class="form-group">
+                  <label for="builderObjective">Main Objective</label>
+                  <input type="text" id="builderObjective" placeholder="e.g. Design a robust caching layer for high-throughput microservices">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="builderContext">Context &amp; Background</label>
+                <textarea id="builderContext" rows="2" placeholder="Provide necessary background context, domain knowledge, or constraints..."></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="builderInstructions">Step-by-Step Instructions</label>
+                <textarea id="builderInstructions" rows="4" placeholder="1. Analyze existing bottlenecks...&#10;2. Propose Redis cluster architecture..."></textarea>
+              </div>
+
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="builderInputData">Input Data / Variables</label>
+                  <textarea id="builderInputData" rows="2" placeholder="Paste code snippet, dataset schema, or raw text..."></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="builderOutputFormat">Output Format</label>
+                  <select id="builderOutputFormat">
+                    <option value="Markdown Report">Markdown Report</option>
+                    <option value="JSON Object Schema">JSON Object Schema</option>
+                    <option value="Python Code Block">Python Code Block</option>
+                    <option value="Step-by-Step Guide">Step-by-Step Guide</option>
+                    <option value="Executive Summary">Executive Summary</option>
+                    <option value="Table Comparison">Table Comparison</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-grid-3">
+                <div class="form-group">
+                  <label for="builderTone">Tone &amp; Style</label>
+                  <select id="builderTone">
+                    <option value="Professional &amp; Authoritative">Professional &amp; Authoritative</option>
+                    <option value="Concise &amp; Direct">Concise &amp; Direct</option>
+                    <option value="Technical &amp; Rigorous">Technical &amp; Rigorous</option>
+                    <option value="Friendly &amp; Educational">Friendly &amp; Educational</option>
+                    <option value="Creative &amp; Engaging">Creative &amp; Engaging</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="builderLanguage">Language</label>
+                  <select id="builderLanguage">
+                    <option value="Indonesian (Bahasa Indonesia)">Indonesian</option>
+                    <option value="English (Professional)">English</option>
+                    <option value="Bilingual (ID/EN)">Bilingual</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="builderCategory">Library Category</label>
+                  <select id="builderCategory">
+                    <option value="Programming">Programming</option>
+                    <option value="Writing">Writing</option>
+                    <option value="Business">Business</option>
+                    <option value="Education">Education</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Research">Research</option>
+                    <option value="Creative">Creative</option>
+                    <option value="Productivity">Productivity</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="builderConstraints">Additional Constraints / Rules</label>
+                <input type="text" id="builderConstraints" placeholder="e.g. Do not include markdown code block wrappers in raw output; avoid fluff">
+              </div>
+
+              <div class="form-actions">
+                <button type="button" class="btn btn-primary" id="generatePromptBtn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  Generate Prompt
+                </button>
+                <button type="button" class="btn btn-secondary" id="resetBuilderBtn">Reset Form</button>
+                <button type="button" class="btn btn-secondary" id="saveBuilderToLibBtn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                  Save to Library
+                </button>
+              </div>
+            </div>
+
+            <div class="builder-preview-pane">
+              <div class="preview-header">
+                <div class="preview-title">
+                  <span class="output-dot"></span>
+                  <span>Live Prompt Preview</span>
+                </div>
+                <div class="preview-actions">
+                  <button type="button" class="btn-icon" id="copyBuilderPreviewBtn" title="Copy to Clipboard">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="preview-content-box">
+                <pre id="builderPreviewText">Configure parameters on the left to generate structured prompt...</pre>
+              </div>
+              <div class="preview-stats" id="builderStats">
+                <span>Words: 0</span>
+                <span>Chars: 0</span>
+                <span>Tokens (est): 0</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 3: PROMPT OPTIMIZER -->
+        <section class="view-section" id="view-optimizer">
+          <div class="optimizer-layout">
+            <div class="optimizer-input-card">
+              <div class="pane-header">
+                <h2>Smart Prompt Optimizer</h2>
+                <p>Paste an unstructured or weak prompt below. Select optimization goals and let the local engine restructure it.</p>
+              </div>
+
+              <div class="form-group">
+                <label for="optimizerInputText">Original Prompt</label>
+                <textarea id="optimizerInputText" rows="5" placeholder="e.g. Tolong buatkan artikel tentang cara pakai python untuk data science yang bagus dan lengkap..."></textarea>
+              </div>
+
+              <div class="form-group">
+                <label>Optimization Focus Goals</label>
+                <div class="optimizer-checkbox-grid">
+                  <label class="checkbox-label"><input type="checkbox" name="optGoal" value="clarity" checked> Clarity &amp; Precision</label>
+                  <label class="checkbox-label"><input type="checkbox" name="optGoal" value="context" checked> Deep Context</label>
+                  <label class="checkbox-label"><input type="checkbox" name="optGoal" value="specificity" checked> High Specificity</label>
+                  <label class="checkbox-label"><input type="checkbox" name="optGoal" value="structure" checked> Instruction Structure</label>
+                  <label class="checkbox-label"><input type="checkbox" name="optGoal" value="output" checked> Output Control</label>
+                  <label class="checkbox-label"><input type="checkbox" name="optGoal" value="constraints" checked> Strict Constraints</label>
+                </div>
+              </div>
+
+              <button type="button" class="btn btn-primary" id="runOptimizerBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+                Analyze &amp; Optimize Prompt
+              </button>
+            </div>
+
+            <div class="optimizer-result-card">
+              <div class="pane-header">
+                <h2>Optimization Comparison</h2>
+                <p>Side-by-side analysis of structural enhancements.</p>
+              </div>
+
+              <div class="comparison-tabs">
+                <button type="button" class="comp-tab active" data-target="compOptimized">Optimized Result</button>
+                <button type="button" class="comp-tab" data-target="compAnalysis">Analysis Report</button>
+              </div>
+
+              <div class="comp-panel active" id="compOptimized">
+                <div class="preview-content-box">
+                  <pre id="optimizedOutputText">Run optimizer to generate enhanced prompt version...</pre>
+                </div>
+                <div class="form-actions" style="margin-top: 1rem;">
+                  <button type="button" class="btn btn-primary btn-sm" id="copyOptimizedBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy Optimized Prompt
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="sendToBuilderBtn">
+                    Send to Builder
+                  </button>
+                </div>
+              </div>
+
+              <div class="comp-panel" id="compAnalysis">
+                <div class="analysis-report-box" id="analysisReportContent">
+                  <p class="text-muted">No analysis report generated yet.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 4: PROMPT LIBRARY -->
+        <section class="view-section" id="view-library">
+          <div class="library-header-actions">
+            <div class="search-filter-bar">
+              <div class="search-input-wrap">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="libSearchInput" placeholder="Search saved prompts...">
+              </div>
+              <select id="libCategoryFilter">
+                <option value="all">All Categories</option>
+                <option value="Programming">Programming</option>
+                <option value="Writing">Writing</option>
+                <option value="Business">Business</option>
+                <option value="Education">Education</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Research">Research</option>
+                <option value="Creative">Creative</option>
+                <option value="Productivity">Productivity</option>
+              </select>
+              <select id="libSortSelect">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="title">Alphabetical</option>
+              </select>
+            </div>
+
+            <div class="lib-action-buttons">
+              <button type="button" class="btn btn-secondary btn-sm" id="exportJsonBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export JSON
+              </button>
+              <label class="btn btn-secondary btn-sm" style="cursor:pointer;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Import JSON
+                <input type="file" id="importJsonInput" accept=".json" style="display:none;">
+              </label>
+            </div>
+          </div>
+
+          <div class="prompt-grid" id="promptLibraryGrid">
+            <!-- Dynamic library items -->
+          </div>
+        </section>
+
+        <!-- VIEW 5: TEMPLATES -->
+        <section class="view-section" id="view-templates">
+          <div class="section-header" style="margin-bottom: 2rem;">
+            <span class="section-tag">Curated Collection</span>
+            <h2>Professional Prompt Templates</h2>
+            <p>22+ production-grade templates designed by senior architects and domain experts. Click to preview or load directly into Builder.</p>
+          </div>
+
+          <div class="search-filter-bar" style="margin-bottom: 2rem; max-width: 800px; margin-left: auto; margin-right: auto;">
+            <div class="search-input-wrap" style="flex: 1;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="templateSearchInput" placeholder="Search templates by title or use-case...">
+            </div>
+            <select id="templateCategoryFilter">
+              <option value="all">All Categories</option>
+              <option value="Programming">Programming</option>
+              <option value="Writing">Writing</option>
+              <option value="Business">Business</option>
+              <option value="Education">Education</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Research">Research</option>
+              <option value="Creative">Creative</option>
+              <option value="Productivity">Productivity</option>
+            </select>
+          </div>
+
+          <div class="templates-grid" id="templatesGrid">
+            <!-- Dynamic templates list -->
+          </div>
+        </section>
+
+        <!-- VIEW 6: HISTORY -->
+        <section class="view-section" id="view-history">
+          <div class="history-header-actions">
+            <div class="search-input-wrap" style="max-width: 400px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="historySearchInput" placeholder="Search execution history...">
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="clearHistoryBtn">
+              Clear All History
+            </button>
+          </div>
+
+          <div class="history-table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Type / Action</th>
+                  <th>Prompt Snippet</th>
+                  <th>Category</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody">
+                <!-- Dynamic history rows -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- VIEW 7: SETTINGS -->
+        <section class="view-section" id="view-settings">
+          <div class="settings-container">
+            <div class="settings-card">
+              <h3>Workspace Preferences</h3>
+              <p>Configure default behaviors and interface settings.</p>
+              
+              <div class="form-grid" style="margin-top: 1.5rem;">
+                <div class="form-group">
+                  <label for="settingTheme">Theme Preference</label>
+                  <select id="settingTheme">
+                    <option value="dark">Obsidian Dark (Default)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="settingLanguage">Default Language</label>
+                  <select id="settingLanguage">
+                    <option value="id">Indonesian (ID)</option>
+                    <option value="en">English (EN)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-grid" style="margin-top: 1rem;">
+                <div class="form-group">
+                  <label for="settingTone">Default Prompt Tone</label>
+                  <select id="settingTone">
+                    <option value="Professional &amp; Authoritative">Professional &amp; Authoritative</option>
+                    <option value="Concise &amp; Direct">Concise &amp; Direct</option>
+                    <option value="Technical &amp; Rigorous">Technical &amp; Rigorous</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="settingFormat">Default Output Format</label>
+                  <select id="settingFormat">
+                    <option value="Markdown Report">Markdown Report</option>
+                    <option value="JSON Object Schema">JSON Object Schema</option>
+                    <option value="Python Code Block">Python Code Block</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-card" style="margin-top: 2rem;">
+              <h3>API Integration Foundation (Provider Abstraction)</h3>
+              <p>Configure connection endpoints for future LLM integration. Currently running in Local Deterministic Demo Mode.</p>
+              
+              <div class="form-group" style="margin-top: 1.5rem;">
+                <label for="settingProvider">LLM Provider</label>
+                <select id="settingProvider">
+                  <option value="demo">Local Deterministic Engine (Demo Mode)</option>
+                  <option value="openai">OpenAI API (GPT-4o / GPT-4 Turbo)</option>
+                  <option value="gemini">Google Gemini API (Gemini 1.5 Pro)</option>
+                  <option value="anthropic">Anthropic API (Claude 3.5 Sonnet)</option>
+                </select>
+              </div>
+              <div class="form-group" id="apiKeyGroup" style="display:none; margin-top: 1rem;">
+                <label for="settingApiKey">API Key (Encrypted Locally)</label>
+                <input type="password" id="settingApiKey" placeholder="sk-...">
+                <small class="text-muted">API keys never leave your browser session and are never transmitted to external logging servers.</small>
+              </div>
+            </div>
+
+            <div class="settings-card" style="margin-top: 2rem;">
+              <h3>Data Management</h3>
+              <p>Export your workspace data or reset local storage.</p>
+              <div class="form-actions" style="margin-top: 1.5rem;">
+                <button type="button" class="btn btn-secondary" id="exportAllDataBtn">Export Complete Backup (JSON)</button>
+                <button type="button" class="btn btn-secondary" id="clearAllDataBtn" style="border-color: #ef4444; color: #ef4444;">Clear All Local Data</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- MODALS -->
+  <!-- Command Palette Modal -->
+  <div class="modal-backdrop" id="cmdPaletteModal">
+    <div class="cmd-palette-box">
+      <div class="cmd-palette-input-wrap">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="cmdPaletteInput" placeholder="Type a command or jump to view (e.g. Builder, Library, Settings)...">
+        <kbd>ESC</kbd>
+      </div>
+      <div class="cmd-palette-results" id="cmdPaletteResults">
+        <div class="cmd-item" data-action="nav" data-target="overview">
+          <span>Go to Overview</span>
+          <kbd>G O</kbd>
+        </div>
+        <div class="cmd-item" data-action="nav" data-target="builder">
+          <span>Open Prompt Builder</span>
+          <kbd>G B</kbd>
+        </div>
+        <div class="cmd-item" data-action="nav" data-target="optimizer">
+          <span>Open Prompt Optimizer</span>
+          <kbd>G O</kbd>
+        </div>
+        <div class="cmd-item" data-action="nav" data-target="library">
+          <span>View Prompt Library</span>
+          <kbd>G L</kbd>
+        </div>
+        <div class="cmd-item" data-action="nav" data-target="templates">
+          <span>Browse Templates</span>
+          <kbd>G T</kbd>
+        </div>
+        <div class="cmd-item" data-action="nav" data-target="history">
+          <span>View Execution History</span>
+          <kbd>G H</kbd>
+        </div>
+        <div class="cmd-item" data-action="nav" data-target="settings">
+          <span>Open Settings</span>
+          <kbd>G S</kbd>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Template Preview Modal -->
+  <div class="modal-backdrop" id="templateModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTemplateTitle">Template Title</h3>
+        <button type="button" class="modal-close" id="closeTemplateModal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-meta">
+          <span class="badge-cat" id="modalTemplateCat">Programming</span>
+          <p id="modalTemplateDesc">Description goes here...</p>
+        </div>
+        <div class="form-group" style="margin-top: 1.5rem;">
+          <label>Template Content / Structure</label>
+          <div class="preview-content-box">
+            <pre id="modalTemplateContent">Content...</pre>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modalCopyTemplateBtn">Copy Content</button>
+        <button type="button" class="btn btn-primary" id="modalUseTemplateBtn">Use in Prompt Builder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Prompt Modal -->
+  <div class="modal-backdrop" id="editPromptModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Edit Saved Prompt</h3>
+        <button type="button" class="modal-close" id="closeEditModal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editPromptId">
+        <div class="form-group">
+          <label for="editPromptTitle">Prompt Title</label>
+          <input type="text" id="editPromptTitle">
+        </div>
+        <div class="form-group">
+          <label for="editPromptCategory">Category</label>
+          <select id="editPromptCategory">
+            <option value="Programming">Programming</option>
+            <option value="Writing">Writing</option>
+            <option value="Business">Business</option>
+            <option value="Education">Education</option>
+            <option value="Marketing">Marketing</option>
+            <option value="Research">Research</option>
+            <option value="Creative">Creative</option>
+            <option value="Productivity">Productivity</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="editPromptBody">Prompt Content</label>
+          <textarea id="editPromptBody" rows="8"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="closeEditModalBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveEditModalBtn">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
