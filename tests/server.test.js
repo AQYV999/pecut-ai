@@ -71,3 +71,41 @@ test('POST /api/ai/optimize returns demo mode fallback when no key is in env', a
 
   if (oldKey) process.env.GEMINI_API_KEY = oldKey;
 });
+
+test('POST /api/ai/flow/step rejects empty inputData with 400', async () => {
+  const res = await fetch(`${baseUrl}/api/ai/flow/step`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inputData: '' })
+  });
+
+  assert.equal(res.status, 400);
+  const data = await res.json();
+  assert.ok(data.error);
+});
+
+test('POST /api/ai/flow/step executes step successfully (demo fallback when key absent)', async () => {
+  const oldKey = process.env.GEMINI_API_KEY;
+  delete process.env.GEMINI_API_KEY;
+
+  const res = await fetch(`${baseUrl}/api/ai/flow/step`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      flowId: 'flow-content',
+      stepIndex: 0,
+      stepTitle: 'Hook Ideation',
+      stepInstruction: 'Draft 3 viral hooks',
+      inputData: 'AI developer tools in 2026',
+      previousOutput: ''
+    })
+  });
+
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.stepIndex, 0);
+  assert.equal(data.stepTitle, 'Hook Ideation');
+  assert.ok(data.output && data.output.length > 0);
+
+  if (oldKey) process.env.GEMINI_API_KEY = oldKey;
+});

@@ -99,3 +99,80 @@ You MUST return a valid JSON object matching this structure:
     throw err;
   }
 }
+
+/**
+ * Executes a single step in a Pecut Flow workflow using Google Gemini API.
+ * @param {Object} options
+ * @param {string} options.apiKey
+ * @param {string} [options.model]
+ * @param {string} options.prompt
+ * @param {string} [options.systemInstruction]
+ * @param {number} [options.timeoutMs]
+ * @returns {Promise<{ text: string }>}
+ */
+export async function callGeminiGenerate({ apiKey, model, prompt, systemInstruction, timeoutMs = 30000 }) {
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not configured on the server');
+  }
+
+  const activeModel = model || 'gemini-1.5-flash';
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const payload = {
+    contents: [
+      {
+        parts: [{ text: prompt }]
+      }
+    ],
+    generationConfig: {
+      temperature: 0.3,
+      maxOutputTokens: 2048
+    }
+  };
+
+  if (systemInstruction) {
+    payload.systemInstruction = {
+      parts: [{ text: systemInstruction }]
+    };
+  }
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      const errText = await res.text();
+      let errMsg = `Gemini API error (HTTP ${res.status})`;
+      try {
+        const parsed = JSON.parse(errText);
+        if (parsed.error?.message) errMsg += `: ${parsed.error.message}`;
+      } catch (_) {
+        errMsg += `: ${errText.slice(0, 200)}`;
+      }
+      throw new Error(errMsg);
+    }
+
+    const data = await res.json();
+    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!candidateText) {
+      throw new Error('Gemini returned an empty response');
+    }
+
+    return { text: candidateText };
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}

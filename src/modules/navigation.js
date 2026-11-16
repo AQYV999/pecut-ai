@@ -32,8 +32,10 @@ export function switchView(viewId) {
     overview: 'Overview',
     builder: 'Prompt Builder',
     optimizer: 'Prompt Optimizer',
+    flow: 'Pecut Flow (Workflows)',
     library: 'Prompt Library',
     templates: 'Templates',
+    profiles: 'Context Profiles',
     history: 'Execution History',
     settings: 'Settings'
   };

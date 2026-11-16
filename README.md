@@ -28,8 +28,8 @@ Rather than scattering prompts and instructions across countless chat windows, P
 | **Execution History** | :white_check_mark: Active | Activity log with 1-click restore to builder |
 | **Settings & Theming** | :white_check_mark: Active | Dark / Light theme tokens, high-contrast focus rings, reduced-motion support |
 | **Command Palette** | :white_check_mark: Active | Keyboard shortcuts (`Ctrl+K`, `Ctrl+Enter`, `Ctrl+S`, `Escape`) |
-| **Pecut Flow (Workflow Engine)** | :construction: Planned | Multi-step prompt chaining (Stage 3) |
-| **Context Profiles** | :construction: Planned | Business identity & persona presets (Stage 3) |
+| **Pecut Flow (Workflow Chaining)** | :white_check_mark: Active | Multi-step sequential prompt chaining pipeline (Content, Code & Study flows) |
+| **Context Profiles** | :white_check_mark: Active | Reusable brand identity, technical personas, and 1-click builder injection |
 | **Real AI Integration (BYOK)** | :white_check_mark: Active | Google Gemini (`gemini-1.5-flash`) via lightweight zero-dependency server |
 
 ---

@@ -1,5 +1,5 @@
 /**
- * Pecut AI — AI Service Abstraction Layer (Stage 2 BYOK Client)
+ * Pecut AI — AI Service Abstraction Layer (Stage 2 & 3 Client)
  * Apache-2.0 License
  *
  * Communicates with the secure local backend server (/api/ai/*).
@@ -71,6 +71,43 @@ export async function optimizePromptWithAI(prompt, goals = []) {
     return {
       mode: 'fallback',
       error: err.message
+    };
+  }
+}
+
+/**
+ * Executes a single step of a Pecut Flow pipeline.
+ * @param {Object} stepData
+ * @param {string} stepData.flowId
+ * @param {number} stepData.stepIndex
+ * @param {string} stepData.stepTitle
+ * @param {string} stepData.stepInstruction
+ * @param {string} stepData.inputData
+ * @param {string} [stepData.previousOutput]
+ * @returns {Promise<Object>}
+ */
+export async function executeFlowStep(stepData) {
+  try {
+    const res = await fetch('/api/ai/flow/step', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(stepData)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Server error (HTTP ${res.status})`);
+    }
+
+    return await res.json();
+  } catch (err) {
+    // Graceful offline fallback
+    return {
+      mode: 'demo',
+      stepIndex: stepData.stepIndex,
+      stepTitle: stepData.stepTitle,
+      output: `### [STEP ${stepData.stepIndex + 1}: ${stepData.stepTitle}]\n\nProcessed: ${stepData.inputData}\n\nOutcome:\n- Step execution generated locally.\n- Note: ${err.message}`,
+      hasKey: false
     };
   }
 }

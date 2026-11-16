@@ -10,6 +10,8 @@ import { initLibrary } from './modules/library.js';
 import { initTemplates } from './modules/templates.js';
 import { initHistory } from './modules/history.js';
 import { initSettings } from './modules/settings.js';
+import { initProfiles } from './modules/profiles.js';
+import { initFlow } from './modules/flow.js';
 import { initCommandPalette } from './modules/commandPalette.js';
 import { updateGlobalCounters, applyTheme, appState } from './modules/storage.js';
 import { checkAIStatus } from './services/ai/index.js';
@@ -25,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initLibrary();
   initTemplates();
   initHistory();
+  initProfiles();
+  initFlow();
   initSettings();
   initCommandPalette();
 

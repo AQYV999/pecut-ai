@@ -73,6 +73,30 @@ export function initPromptBuilder() {
     }
   });
 
+  const profileSelect = document.getElementById('builderProfileSelect');
+  if (profileSelect) {
+    profileSelect.addEventListener('change', (e) => {
+      const selectedId = e.target.value;
+      if (selectedId) {
+        const prof = appState.profiles.find(p => p.id === selectedId);
+        if (prof) {
+          const roleEl = document.getElementById('builderRole');
+          const contextEl = document.getElementById('builderContext');
+          const toneEl = document.getElementById('builderTone');
+          const constraintsEl = document.getElementById('builderConstraints');
+
+          if (roleEl && prof.role) roleEl.value = prof.role;
+          if (contextEl && prof.context) contextEl.value = prof.context;
+          if (toneEl && prof.tone) toneEl.value = prof.tone;
+          if (constraintsEl && prof.constraints) constraintsEl.value = prof.constraints;
+
+          updateBuilderPreview();
+          showToast(`Applied profile: "${prof.name}"`);
+        }
+      }
+    });
+  }
+
   const generateBtn = document.getElementById('generatePromptBtn');
   if (generateBtn) {
     generateBtn.addEventListener('click', () => {

@@ -10,7 +10,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { callGeminiOptimizer } from './providers/gemini.js';
+import { callGeminiOptimizer, callGeminiGenerate } from './providers/gemini.js';
 
 // Load .env if present
 try {
@@ -170,6 +170,60 @@ export function createPecutServer() {
       } catch (err) {
         return sendJSON(res, 500, {
           error: err.message || 'Internal AI execution error'
+        });
+      }
+    }
+
+    // API Route: Execute workflow flow step
+    if (url === '/api/ai/flow/step' && req.method === 'POST') {
+      try {
+        const body = await parseJSONBody(req);
+        const { flowId, stepIndex, stepTitle, stepInstruction, inputData, previousOutput } = body;
+
+        if (!inputData || !inputData.trim()) {
+          return sendJSON(res, 400, { error: 'Workflow input data is required' });
+        }
+
+        const apiKey = process.env.GEMINI_API_KEY;
+        const model = process.env.GEMINI_DEFAULT_MODEL || 'gemini-1.5-flash';
+
+        if (!apiKey || !apiKey.trim()) {
+          const mockOutput = `### [DEMO STEP ${Number(stepIndex) + 1}: ${stepTitle || 'Step'}]\n\nProcessed Input:\n${inputData}\n\nOutcome:\n- Successfully generated output for step ${Number(stepIndex) + 1} per directives.\n- Ready to chain into subsequent workflow stages.\n\n(Note: Set GEMINI_API_KEY in .env to run with real Gemini AI)`;
+          return sendJSON(res, 200, {
+            mode: 'demo',
+            flowId,
+            stepIndex,
+            stepTitle,
+            output: mockOutput,
+            hasKey: false
+          });
+        }
+
+        const timeoutMs = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '30000', 10);
+        const promptText = `WORKFLOW INPUT:\n${inputData}\n\nPREVIOUS STEP OUTPUT:\n${previousOutput || '(Initial step - no previous output)'}\n\nTASK INSTRUCTIONS:\n${stepInstruction}`;
+        const sysInstruction = `You are Pecut AI Workflow Engine executing Step ${Number(stepIndex) + 1}: "${stepTitle}". Provide a direct, authoritative, structured output. Avoid filler text.`;
+
+        const result = await callGeminiGenerate({
+          apiKey,
+          model,
+          prompt: promptText,
+          systemInstruction: sysInstruction,
+          timeoutMs
+        });
+
+        return sendJSON(res, 200, {
+          mode: 'ai',
+          flowId,
+          stepIndex,
+          stepTitle,
+          output: result.text,
+          provider: 'gemini',
+          model,
+          hasKey: true
+        });
+      } catch (err) {
+        return sendJSON(res, 500, {
+          error: err.message || 'Flow step execution error'
         });
       }
     }
