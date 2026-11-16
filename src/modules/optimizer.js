@@ -5,7 +5,8 @@
 
 import { logHistory } from './history.js';
 import { switchView } from './navigation.js';
-import { showToast } from '../utils/helpers.js';
+import { showToast, escapeHtml } from '../utils/helpers.js';
+import { optimizePromptWithAI } from '../services/ai/index.js';
 
 export function analyzePromptLocally(text) {
   const lower = text.toLowerCase();
@@ -37,7 +38,7 @@ export function analyzePromptLocally(text) {
 export function initOptimizer() {
   const runBtn = document.getElementById('runOptimizerBtn');
   if (runBtn) {
-    runBtn.addEventListener('click', () => {
+    runBtn.addEventListener('click', async () => {
       const rawInput = (document.getElementById('optimizerInputText')?.value || '').trim();
       if (!rawInput) {
         showToast('Please enter an original prompt to optimize.', 'error');
@@ -46,37 +47,82 @@ export function initOptimizer() {
 
       const goals = Array.from(document.querySelectorAll('input[name="optGoal"]:checked')).map(el => el.value);
 
-      // Deterministic structured optimization (Phase 0 / Stage 1 local engine)
-      const optimized = `### OPTIMIZED PROMPT (Pecut AI Local Engine)\n\nRole: Expert Domain Specialist & Senior Prompt Engineer\nObjective: ${rawInput}\n\nContext:\n- High-performance execution environment.\n- Maintain rigorous adherence to user directives without unnecessary verbosity.\n\nStep-by-Step Instructions:\n1. Conduct comprehensive analysis of the core objective.\n2. Execute structured transformation ensuring zero ambiguity.\n3. Format output cleanly according to professional standards.\n\nConstraints:\n- Avoid introductory fluff or conversational filler.\n- Ensure deterministic, reproducible outputs.\n\nOutput Format: Structured Markdown Report.`;
+      const origBtnHtml = runBtn.innerHTML;
+      runBtn.disabled = true;
+      runBtn.innerHTML = `
+        <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        Optimizing...
+      `;
 
-      const outputEl = document.getElementById('optimizedOutputText');
-      if (outputEl) outputEl.textContent = optimized;
+      try {
+        const aiResult = await optimizePromptWithAI(rawInput, goals);
 
-      const metrics = analyzePromptLocally(rawInput);
-      const report =
-        `LOCAL STRUCTURAL ANALYSIS (no AI model used)\n` +
-        `------------------------------------------------\n` +
-        `This report is produced by a rule-based local analyzer. It does NOT\n` +
-        `call an AI model and does NOT measure true output quality.\n\n` +
-        `- Original length: ${rawInput.length} characters / ${metrics.words} words\n` +
-        `- Active focus goals: ${goals.length ? goals.join(', ') : '(none selected)'}\n` +
-        `- Detected sections: ${metrics.sections.length ? metrics.sections.join(', ') : 'none'}\n` +
-        `- Has explicit output format: ${metrics.hasOutput ? 'yes' : 'no'}\n` +
-        `- Has constraints/rules: ${metrics.hasConstraints ? 'yes' : 'no'}\n` +
-        `- Has role/persona: ${metrics.hasRole ? 'yes' : 'no'}\n` +
-        `- Vague-phrase count: ${metrics.vagueHits}\n\n` +
-        `The structured version above adds standard sections (Role, Objective,\n` +
-        `Context, Instructions, Constraints, Output Format). Whether it is\n` +
-        `better depends on your task. For genuine AI optimization, configure\n` +
-        `a provider on the server (see README / .env.example).`;
+        const outputEl = document.getElementById('optimizedOutputText');
+        const reportEl = document.getElementById('analysisReportContent');
 
-      const reportEl = document.getElementById('analysisReportContent');
-      if (reportEl) {
-        reportEl.innerHTML = `<pre style="font-family:var(--font-mono); font-size:0.85rem; color:var(--text-secondary); white-space:pre-wrap;">${report}</pre>`;
+        if (aiResult.mode === 'ai') {
+          // Real AI result from Gemini
+          if (outputEl) outputEl.textContent = aiResult.optimizedPrompt;
+
+          const improvementsList = (aiResult.improvements || [])
+            .map(item => `  • ${item}`)
+            .join('\n');
+
+          const report =
+            `GENUINE AI OPTIMIZATION REPORT\n` +
+            `================================================\n` +
+            `Provider : Google Gemini (${aiResult.model || 'gemini-1.5-flash'})\n` +
+            `Status   : Real Model Generation via Server BYOK\n\n` +
+            `EXPERT ANALYSIS:\n` +
+            `${aiResult.analysis}\n\n` +
+            `IMPROVEMENTS APPLIED:\n` +
+            `${improvementsList || '  • Applied professional structure and constraints'}\n\n` +
+            `Focus goals evaluated: ${goals.length ? goals.join(', ') : 'clarity, structure'}`;
+
+          if (reportEl) {
+            reportEl.innerHTML = `<pre style="font-family:var(--font-mono); font-size:0.85rem; color:var(--text-secondary); white-space:pre-wrap;">${escapeHtml(report)}</pre>`;
+          }
+
+          logHistory('Gemini AI Optimization', rawInput, 'Productivity');
+          showToast('Prompt successfully optimized with Gemini AI!');
+        } else {
+          // Fallback / Demo Engine
+          const optimized = `### OPTIMIZED PROMPT (Pecut AI Local Engine)\n\nRole: Expert Domain Specialist & Senior Prompt Engineer\nObjective: ${rawInput}\n\nContext:\n- High-performance execution environment.\n- Maintain rigorous adherence to user directives without unnecessary verbosity.\n\nStep-by-Step Instructions:\n1. Conduct comprehensive analysis of the core objective.\n2. Execute structured transformation ensuring zero ambiguity.\n3. Format output cleanly according to professional standards.\n\nConstraints:\n- Avoid introductory fluff or conversational filler.\n- Ensure deterministic, reproducible outputs.\n\nOutput Format: Structured Markdown Report.`;
+
+          if (outputEl) outputEl.textContent = optimized;
+
+          const metrics = analyzePromptLocally(rawInput);
+          const notice = aiResult.error
+            ? `(Note: Server connection error: ${aiResult.error})\n\n`
+            : `(Note: To enable real AI optimization, set GEMINI_API_KEY in your .env file)\n\n`;
+
+          const report =
+            `LOCAL STRUCTURAL ANALYSIS (Demo Mode)\n` +
+            `------------------------------------------------\n` +
+            notice +
+            `- Original length: ${rawInput.length} characters / ${metrics.words} words\n` +
+            `- Active focus goals: ${goals.length ? goals.join(', ') : '(none selected)'}\n` +
+            `- Detected sections: ${metrics.sections.length ? metrics.sections.join(', ') : 'none'}\n` +
+            `- Has explicit output format: ${metrics.hasOutput ? 'yes' : 'no'}\n` +
+            `- Has constraints/rules: ${metrics.hasConstraints ? 'yes' : 'no'}\n` +
+            `- Has role/persona: ${metrics.hasRole ? 'yes' : 'no'}\n` +
+            `- Vague-phrase count: ${metrics.vagueHits}\n\n` +
+            `The structured version above adds standard sections (Role, Objective,\n` +
+            `Context, Instructions, Constraints, Output Format).`;
+
+          if (reportEl) {
+            reportEl.innerHTML = `<pre style="font-family:var(--font-mono); font-size:0.85rem; color:var(--text-secondary); white-space:pre-wrap;">${escapeHtml(report)}</pre>`;
+          }
+
+          logHistory('Prompt Optimization (Local)', rawInput, 'Productivity');
+          showToast('Prompt optimized via local structural engine');
+        }
+      } catch (err) {
+        showToast('Optimization failed: ' + err.message, 'error');
+      } finally {
+        runBtn.disabled = false;
+        runBtn.innerHTML = origBtnHtml;
       }
-
-      logHistory('Prompt Optimization', rawInput, 'Productivity');
-      showToast('Prompt successfully optimized!');
     });
   }
 

@@ -30,34 +30,35 @@ Rather than scattering prompts and instructions across countless chat windows, P
 | **Command Palette** | :white_check_mark: Active | Keyboard shortcuts (`Ctrl+K`, `Ctrl+Enter`, `Ctrl+S`, `Escape`) |
 | **Pecut Flow (Workflow Engine)** | :construction: Planned | Multi-step prompt chaining (Stage 3) |
 | **Context Profiles** | :construction: Planned | Business identity & persona presets (Stage 3) |
-| **Real AI Integration (BYOK)** | :construction: Planned | Stage 2 (Gemini Flash & OpenAI via local secure proxy) |
+| **Real AI Integration (BYOK)** | :white_check_mark: Active | Google Gemini (`gemini-1.5-flash`) via lightweight zero-dependency server |
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## 🚀 Quick Start (Local & Self-Hosted)
 
 ### Prerequisites
 - Node.js 18+ (tested on Node.js v20+)
 - npm or pnpm
 
-### Installation & Run
-
+### 1. Development Mode (Frontend + Proxy)
 ```bash
-# 1. Clone the repository
-git clone https://github.com/pecut-ai/pecut-ai.git
-cd pecut-ai
-
-# 2. Install dependencies
 npm install
+npm run dev      # Starts Vite on http://localhost:5173
+```
 
-# 3. Start development server
-npm run dev
+### 2. Self-Hosted Server (Full Stack with Gemini BYOK)
+```bash
+# Configure your Gemini API key:
+cp .env.example .env
+# Edit .env and set GEMINI_API_KEY=your_key_here
 
-# 4. Run test suite
-npm test
+npm run build    # Compiles production assets into dist/
+npm start        # Launches zero-dependency server on http://localhost:3000
+```
 
-# 5. Build for production
-npm run build
+### 3. Run Test Suite
+```bash
+npm test         # Runs Node native test suite (11 unit tests)
 ```
 
 ---

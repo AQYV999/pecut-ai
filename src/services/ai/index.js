@@ -1,11 +1,9 @@
 /**
- * Pecut AI — AI Service Abstraction Layer (Stage 1 Foundation)
+ * Pecut AI — AI Service Abstraction Layer (Stage 2 BYOK Client)
  * Apache-2.0 License
  *
- * Defines the service boundary for AI execution.
- * In Stage 1, this acts as the interface contract and returns deterministic local status.
- * Stage 2 will attach the real BYOK provider client (e.g., Gemini 1.5 Flash / OpenAI)
- * calling a secure local backend proxy reading from process.env, NEVER browser localStorage.
+ * Communicates with the secure local backend server (/api/ai/*).
+ * Zero credentials/secrets are stored or handled in the browser.
  */
 
 export const SUPPORTED_PROVIDERS = {
@@ -29,13 +27,50 @@ export const SUPPORTED_PROVIDERS = {
   }
 };
 
-export const currentEngineState = {
-  mode: 'demo', // 'demo' in Stage 1, 'byok' in Stage 2
-  activeProvider: 'gemini',
-  activeModel: 'gemini-1.5-flash',
-  statusText: 'Demo Engine Active'
-};
+/**
+ * Checks server-side AI provider configuration status.
+ * @returns {Promise<{ status: string, provider: string, model: string, hasKey: boolean, engine: string }>}
+ */
+export async function checkAIStatus() {
+  try {
+    const res = await fetch('/api/ai/status');
+    if (!res.ok) throw new Error('Status endpoint unavailable');
+    return await res.json();
+  } catch (_) {
+    return {
+      status: 'demo',
+      provider: 'gemini',
+      model: 'gemini-1.5-flash',
+      hasKey: false,
+      engine: 'Demo Engine (Local Structural)'
+    };
+  }
+}
 
-export function getEngineStatus() {
-  return { ...currentEngineState };
+/**
+ * Sends a prompt optimization request to the server BYOK engine.
+ * @param {string} prompt - Original prompt string
+ * @param {string[]} goals - Optimization goals
+ * @returns {Promise<Object>}
+ */
+export async function optimizePromptWithAI(prompt, goals = []) {
+  try {
+    const res = await fetch('/api/ai/optimize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, goals })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Server responded with ${res.status}`);
+    }
+
+    return await res.json();
+  } catch (err) {
+    return {
+      mode: 'fallback',
+      error: err.message
+    };
+  }
 }

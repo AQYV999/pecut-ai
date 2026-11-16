@@ -12,6 +12,7 @@ import { initHistory } from './modules/history.js';
 import { initSettings } from './modules/settings.js';
 import { initCommandPalette } from './modules/commandPalette.js';
 import { updateGlobalCounters, applyTheme, appState } from './modules/storage.js';
+import { checkAIStatus } from './services/ai/index.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Apply theme immediately on boot
@@ -30,4 +31,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // 3. Update global counter badges and overview state
   updateGlobalCounters();
   updateOverviewMetrics();
+
+  // 4. Check backend BYOK AI status
+  checkAIStatus().then(status => {
+    const apiStatusEl = document.getElementById('apiStatusText');
+    if (apiStatusEl) {
+      if (status.hasKey) {
+        apiStatusEl.textContent = `Gemini Active (${status.model})`;
+      } else {
+        apiStatusEl.textContent = 'Demo Engine (BYOK Ready)';
+      }
+    }
+  });
 });
