@@ -1,5 +1,5 @@
 /* =========================================================================
-   PECUT AI â€” Intelligent Prompt Engineering & Workflow Workspace
+   PECUT AI — Intelligent Prompt Engineering & Workflow Workspace
    Core JavaScript Architecture
    ========================================================================= */
 
@@ -275,7 +275,7 @@ function updateOverviewMetrics() {
     <div class="recent-hist-item">
       <div class="recent-hist-info">
         <h5>${escapeHtml(item.snippet || 'Workflow Execution')}</h5>
-        <span>${item.category || 'General'} â€¢ ${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        <span>${item.category || 'General'} • ${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
       </div>
       <button type="button" class="btn btn-secondary btn-sm" onclick="restoreHistoryItem('${item.id}')">Restore</button>
     </div>
