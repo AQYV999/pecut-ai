@@ -10,6 +10,25 @@ import { showToast, escapeHtml } from '../utils/helpers.js';
 
 let activeDraftProvider = 'openrouter';
 
+function updateLocalTip(provider, baseUrl) {
+  const tipEl = document.getElementById('byokLocalTip');
+  if (!tipEl) return;
+  const isLocal = provider === 'ninerouter' || provider === 'custom' || (baseUrl && (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')));
+  if (isLocal) {
+    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    if (isHttps) {
+      tipEl.innerHTML = `⚠️ <strong>Penting (Web HTTPS Vercel):</strong> Browser memblokir <code>http://localhost</code> karena proteksi Mixed Content.
+      <br>• <strong>Solusi 1 (Rekomendasi):</strong> Aktifkan <strong>Tunnel</strong> di dasbor 9Router (klik tombol power Tunnel) lalu masukkan URL HTTPS tunnel-nya ke kolom ini.
+      <br>• <strong>Solusi 2:</strong> Jalankan Pecut AI di komputer Anda: <code>npm run dev</code> lalu buka <code>http://localhost:5173</code> (dapat langsung terhubung ke 9Router tanpa tunnel).`;
+    } else {
+      tipEl.innerHTML = `💡 <strong>Koneksi Lokal:</strong> Pecut AI berjalan di <code>http://localhost</code>, sehingga dapat langsung terhubung ke 9Router di <code>http://localhost:20128/v1</code>!`;
+    }
+    tipEl.style.display = 'block';
+  } else {
+    tipEl.style.display = 'none';
+  }
+}
+
 export function updateTopbarAIStatus() {
   const info = getActiveProviderInfo();
   const apiStatusEl = document.getElementById('apiStatusText');
@@ -98,6 +117,7 @@ export function openAIModal() {
   }
 
   renderModelPresets(activeDraftProvider, config.model);
+  updateLocalTip(activeDraftProvider, config.baseUrl);
   modal.classList.add('active');
 }
 
@@ -128,15 +148,22 @@ export function initAIModal() {
     });
   }
 
-  // Provider change handler
+  // Base URL input listener for live tip
+  const baseUrlInput = document.getElementById('byokBaseUrlInput');
   const providerSelect = document.getElementById('byokProviderSelect');
+  if (baseUrlInput && providerSelect) {
+    baseUrlInput.addEventListener('input', () => {
+      updateLocalTip(providerSelect.value, baseUrlInput.value);
+    });
+  }
+
+  // Provider change handler
   if (providerSelect) {
     providerSelect.addEventListener('change', () => {
       const selected = providerSelect.value;
       activeDraftProvider = selected;
       const preset = PROVIDER_PRESETS[selected] || PROVIDER_PRESETS.openrouter;
 
-      const baseUrlInput = document.getElementById('byokBaseUrlInput');
       const modelInput = document.getElementById('byokModelInput');
       const apiKeyInput = document.getElementById('byokApiKeyInput');
       const docsLink = document.getElementById('byokGetDocsLink');
@@ -150,6 +177,7 @@ export function initAIModal() {
       }
 
       renderModelPresets(selected, preset.defaultModel);
+      updateLocalTip(selected, preset.baseUrl);
     });
   }
 
@@ -162,7 +190,7 @@ export function initAIModal() {
       const apiKey = (document.getElementById('byokApiKeyInput')?.value || '').trim();
       const statusEl = document.getElementById('byokTestStatus');
 
-      if (!apiKey && provider !== 'custom') {
+      if (!apiKey && provider !== 'custom' && provider !== 'ninerouter') {
         if (statusEl) {
           statusEl.textContent = 'Please enter an API key first to query live models.';
           statusEl.className = 'test-status-text error';
@@ -213,7 +241,7 @@ export function initAIModal() {
       const model = (document.getElementById('byokModelInput')?.value || '').trim();
       const statusEl = document.getElementById('byokTestStatus');
 
-      if (!apiKey && provider !== 'custom') {
+      if (!apiKey && provider !== 'custom' && provider !== 'ninerouter') {
         if (statusEl) {
           statusEl.textContent = 'Please enter an API key first.';
           statusEl.className = 'test-status-text error';

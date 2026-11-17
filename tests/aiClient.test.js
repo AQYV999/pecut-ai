@@ -140,3 +140,34 @@ test('fetchProviderModels queries Gemini models using x-goog-api-key', async () 
     globalThis.fetch = originalFetch;
   }
 });
+
+test('fetchProviderModels queries 9Router models and maps id and name properly', async () => {
+  const { fetchProviderModels } = await import('../src/services/ai/client.js');
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async (url) => {
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        object: 'list',
+        data: [
+          { id: 'VibeCoding', object: 'model', owned_by: 'combo' },
+          { id: 'groq/qwen/qwen3.8-27b', object: 'model', owned_by: 'groq' }
+        ]
+      })
+    };
+  };
+
+  try {
+    const list = await fetchProviderModels({
+      provider: 'ninerouter',
+      baseUrl: 'http://localhost:20128/v1'
+    });
+    assert.equal(list.length, 2);
+    assert.equal(list[0].id, 'VibeCoding');
+    assert.equal(list[1].id, 'groq/qwen/qwen3.8-27b');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

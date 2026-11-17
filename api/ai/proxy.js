@@ -10,7 +10,12 @@ export const ALLOWED_DOMAINS = [
   'openrouter.ai',
   'generativelanguage.googleapis.com',
   'api.groq.com',
-  'api.openai.com'
+  'api.openai.com',
+  'trycloudflare.com',
+  'loca.lt',
+  'ngrok-free.app',
+  'ngrok.io',
+  'ts.net'
 ];
 
 /**

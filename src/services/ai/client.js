@@ -98,9 +98,20 @@ export async function completeChat(options = {}) {
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      const isLocal = isLocalOrigin(targetUrl);
+
+      // Mixed Content detection: HTTPS websites cannot fetch plain HTTP loopback endpoints
+      if (typeof window !== 'undefined' && window.location.protocol === 'https:' && isLocal && targetUrl.startsWith('http:')) {
+        throw new Error(
+          'Browser Security (Mixed Content): Web HTTPS tidak dapat menghubungi http://localhost secara langsung. ' +
+          'Solusi: (1) Aktifkan "Tunnel" di dasbor 9Router untuk mendapatkan URL HTTPS publik, atau ' +
+          '(2) Jalankan Pecut AI secara lokal via npm run dev (http://localhost:5173).'
+        );
+      }
+
       let res;
-      if (isLocalOrigin(targetUrl)) {
-        // Direct local dispatch (e.g. Ollama / LMStudio)
+      if (isLocal) {
+        // Direct local dispatch (e.g. Ollama / LMStudio / local 9Router on HTTP)
         res = await fetch(targetUrl, {
           method: 'POST',
           headers: {
@@ -109,6 +120,29 @@ export async function completeChat(options = {}) {
           },
           body: JSON.stringify(payload)
         });
+      } else if (provider === 'ninerouter' || provider === 'custom') {
+        // For custom or 9Router HTTPS endpoints (such as Cloudflare Tunnel):
+        // Try direct browser fetch first (CORS allowed by 9Router), fallback to proxy
+        try {
+          res = await fetch(targetUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': authHeader
+            },
+            body: JSON.stringify(payload)
+          });
+        } catch (_) {
+          res = await fetch('/api/ai/proxy', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': authHeader,
+              'x-target-url': targetUrl
+            },
+            body: JSON.stringify(payload)
+          });
+        }
       } else {
         // Cloud dispatch via universal proxy
         res = await fetch('/api/ai/proxy', {
@@ -152,6 +186,20 @@ export async function completeChat(options = {}) {
         model
       };
     } catch (err) {
+      if (err.message && (err.message === 'Failed to fetch' || err.name === 'TypeError')) {
+        if (typeof window !== 'undefined' && window.location.protocol === 'https:' && isLocalOrigin(targetUrl)) {
+          throw new Error(
+            'Browser Security (Mixed Content): Web HTTPS memblokir HTTP localhost. ' +
+            'Solusi: Aktifkan "Tunnel" di dasbor 9Router (URL HTTPS) atau jalankan Pecut AI secara lokal via npm run dev di http://localhost:5173.'
+          );
+        }
+        if (isLocalOrigin(targetUrl)) {
+          throw new Error(
+            `Koneksi gagal ke ${targetUrl}. Pastikan 9Router / server lokal sedang aktif di komputer Anda.`
+          );
+        }
+      }
+
       lastError = err;
       if (attempt >= maxRetries) throw err;
       if (err.message && (err.message.toLowerCase().includes('high demand') || err.message.toLowerCase().includes('503'))) {
@@ -198,9 +246,32 @@ export async function fetchProviderModels(config) {
     if (apiKey) headers['Authorization'] = apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`;
   }
 
+  const isLocal = isLocalOrigin(modelsUrl);
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && isLocal && modelsUrl.startsWith('http:')) {
+    throw new Error(
+      'Browser Security (Mixed Content): Web HTTPS memblokir akses ke http://localhost. ' +
+      'Silakan aktifkan "Tunnel" di dasbor 9Router (URL HTTPS) atau jalankan Pecut AI di http://localhost:5173 (npm run dev).'
+    );
+  }
+
   let res;
-  if (isLocalOrigin(modelsUrl)) {
-    res = await fetch(modelsUrl, { headers });
+  if (isLocal) {
+    try {
+      res = await fetch(modelsUrl, { headers });
+    } catch (_) {
+      throw new Error(`Koneksi gagal ke ${modelsUrl}. Pastikan server lokal (9Router/Ollama) sedang berjalan.`);
+    }
+  } else if (provider === 'ninerouter' || provider === 'custom') {
+    try {
+      res = await fetch(modelsUrl, { headers });
+    } catch (_) {
+      res = await fetch('/api/ai/proxy', {
+        headers: {
+          ...headers,
+          'x-target-url': modelsUrl
+        }
+      });
+    }
   } else {
     res = await fetch('/api/ai/proxy', {
       headers: {

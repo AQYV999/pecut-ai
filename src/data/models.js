@@ -60,6 +60,21 @@ export const PROVIDER_PRESETS = {
     placeholder: 'sk-proj-xxxxxxxxxxxxxxxxxxxxxxx',
     docsUrl: 'https://platform.openai.com/api-keys'
   },
+  ninerouter: {
+    id: 'ninerouter',
+    name: '9Router (Local Gateway / Tunnel)',
+    badge: 'Local Gateway / Tunnel',
+    baseUrl: 'http://localhost:20128/v1',
+    defaultModel: 'VibeCoding',
+    models: [
+      { id: 'VibeCoding', name: 'VibeCoding (Default Combo)', isFree: true },
+      { id: 'combo-mletre', name: 'Combo Mletre (Vision+Doc)', isFree: true },
+      { id: 'groq/qwen/qwen3.8-27b', name: 'Qwen 3.8 27B (Groq)', isFree: true },
+      { id: 'af/llama-instant', name: 'Llama Instant', isFree: true }
+    ],
+    placeholder: 'sk-... (from 9Router Dashboard: Titik Akhir & Kunci)',
+    docsUrl: 'http://localhost:20128/dashboard/endpoint'
+  },
   custom: {
     id: 'custom',
     name: 'Custom / Local (Ollama, LMStudio, vLLM)',
