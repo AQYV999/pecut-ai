@@ -46,3 +46,26 @@ test('saveBYOKConfig and clearBYOKConfig manage pecut_byok_config properly', () 
   clearBYOKConfig();
   assert.equal(loadBYOKConfig().apiKey, '');
 });
+
+test('loadBYOKConfig auto-migrates deprecated Gemini 2.5/3.5 models to gemini-3.8', () => {
+  storageStore.clear();
+  storageStore.set('pecut_byok_config', JSON.stringify({
+    provider: 'gemini',
+    apiKey: 'AIzaSyTest123',
+    model: 'gemini-2.5-flash',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai'
+  }));
+
+  const loaded = loadBYOKConfig();
+  assert.equal(loaded.model, 'gemini-3.8-flash', 'gemini-2.5-flash should auto-migrate to gemini-3.8-flash');
+
+  // Test pro variant migration
+  storageStore.set('pecut_byok_config', JSON.stringify({
+    provider: 'gemini',
+    apiKey: 'AIzaSyTest123',
+    model: 'gemini-2.5-pro',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai'
+  }));
+  const loadedPro = loadBYOKConfig();
+  assert.equal(loadedPro.model, 'gemini-3.8-pro', 'gemini-2.5-pro should auto-migrate to gemini-3.8-pro');
+});

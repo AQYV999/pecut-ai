@@ -69,14 +69,14 @@ test('completeChat builds request without ReferenceError and uses configured mod
       overrideConfig: {
         provider: 'gemini',
         apiKey: 'AIzaSyMockKey',
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai'
       }
     });
 
     assert.equal(res.text, 'Test response from mock');
-    assert.equal(res.model, 'gemini-2.5-flash');
-    assert.equal(interceptedBody.model, 'gemini-2.5-flash');
+    assert.equal(res.model, 'gemini-3.8-flash');
+    assert.equal(interceptedBody.model, 'gemini-3.8-flash');
     assert.equal(interceptedUrl, '/api/ai/proxy');
   } finally {
     globalThis.fetch = originalFetch;

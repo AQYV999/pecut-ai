@@ -14,10 +14,17 @@ export function loadBYOKConfig() {
       const parsed = JSON.parse(raw);
       const provider = parsed.provider || 'openrouter';
       const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openrouter;
+      let model = parsed.model || preset.defaultModel;
+
+      // Auto-migrate deprecated Gemini models to gemini-3.8
+      if (provider === 'gemini' && (model.startsWith('gemini-2.5') || model.startsWith('gemini-3.5'))) {
+        model = model.includes('pro') ? 'gemini-3.8-pro' : 'gemini-3.8-flash';
+      }
+
       return {
         provider,
         apiKey: parsed.apiKey || '',
-        model: parsed.model || preset.defaultModel,
+        model,
         baseUrl: parsed.baseUrl || preset.baseUrl
       };
     }
