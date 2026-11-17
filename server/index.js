@@ -111,7 +111,7 @@ export function createPecutServer() {
       res.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-target-url'
       });
       return res.end();
     }

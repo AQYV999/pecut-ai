@@ -192,10 +192,15 @@ You MUST respond strictly with a valid JSON object matching this schema, without
         temperature: 0.2
       });
 
-      // Parse JSON from text
+      // Parse JSON from text with robust regex extraction
       let cleaned = res.text.trim();
-      if (cleaned.startsWith('```json')) cleaned = cleaned.replace(/^```json\s*/, '').replace(/```\s*$/, '');
-      if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```\s*/, '').replace(/```\s*$/, '');
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleaned = jsonMatch[0];
+      } else {
+        if (cleaned.startsWith('```json')) cleaned = cleaned.replace(/^```json\s*/, '').replace(/```\s*$/, '');
+        if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```\s*/, '').replace(/```\s*$/, '');
+      }
 
       const parsed = JSON.parse(cleaned);
       return {

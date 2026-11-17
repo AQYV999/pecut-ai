@@ -66,3 +66,25 @@ test('handleProxyRequest rejects disallowed target domain with 403', async () =>
   assert.equal(statusCode, 403);
   assert.ok(responseData.includes('Forbidden: Target URL domain is not in the allowed AI provider list.'));
 });
+
+test('handleProxyRequest rejects missing Authorization header with 400', async () => {
+  const req = {
+    method: 'POST',
+    headers: {
+      'x-target-url': 'https://openrouter.ai/api/v1/chat/completions'
+    },
+    on: (evt, cb) => { if (evt === 'end') cb(); }
+  };
+  let statusCode = 0;
+  let responseData = '';
+  const res = {
+    writeHead: (status) => { statusCode = status; },
+    end: (data) => { responseData = data; }
+  };
+
+  const { handleProxyRequest } = await import('../api/ai/proxy.js');
+  await handleProxyRequest(req, res);
+
+  assert.equal(statusCode, 400);
+  assert.ok(responseData.includes('Missing required Authorization header'));
+});

@@ -48,18 +48,18 @@ export async function handleProxyRequest(req, res) {
   }
 
   if (req.method !== 'POST') {
-    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.writeHead(405, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     return res.end(JSON.stringify({ error: 'Method Not Allowed. Use POST.' }));
   }
 
   const targetUrl = req.headers['x-target-url'];
   if (!targetUrl) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     return res.end(JSON.stringify({ error: 'Missing required header: x-target-url' }));
   }
 
   if (!isUrlAllowed(targetUrl)) {
-    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     return res.end(JSON.stringify({
       error: 'Forbidden: Target URL domain is not in the allowed AI provider list.',
       allowedDomains: ALLOWED_DOMAINS
@@ -68,7 +68,7 @@ export async function handleProxyRequest(req, res) {
 
   const authHeader = req.headers['authorization'];
   if (!authHeader) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     return res.end(JSON.stringify({ error: 'Missing required Authorization header.' }));
   }
 

@@ -25,6 +25,6 @@ If you discover a security vulnerability within Pecut AI:
 
 ## 3. Security Guidelines & BYOK Policy
 
-- **No Secrets in the Browser**: Pecut AI Community Edition does not store raw provider API keys in browser `localStorage` or `sessionStorage`.
-- **Environment Variables**: API keys belong strictly in server-side environment variables (`.env`), never exposed to frontend client bundles.
-- **Untrusted Input**: Treat all AI-generated output as untrusted text and sanitize properly before rendering to prevent cross-site scripting (XSS).
+- **Bring Your Own Key (BYOK) Privacy**: In the client web application, user-supplied API keys (e.g. OpenRouter, Gemini, Groq, OpenAI) reside exclusively in the user's browser `localStorage` (`pecut_byok_config`) on their own private device. Keys are never transmitted to, stored on, or logged by any server database.
+- **Universal Forwarder (Anti-SSRF)**: The `/api/ai/proxy` serverless endpoint enforces a strict domain allowlist (`openrouter.ai`, `generativelanguage.googleapis.com`, `api.groq.com`, `api.openai.com`) and HTTPS-only protocols to prevent open proxy abuse or internal network scanning.
+- **Untrusted Input**: Treat all AI-generated output as untrusted text and sanitize properly via `escapeHtml()` before rendering to prevent cross-site scripting (XSS).
