@@ -68,11 +68,15 @@ export function initOptimizer() {
             .map(item => `  • ${item}`)
             .join('\n');
 
+          const providerLabel = aiResult.provider
+            ? `${aiResult.provider.toUpperCase()} (${aiResult.model || 'active model'})`
+            : `AI Engine (${aiResult.model || 'active model'})`;
+
           const report =
             `GENUINE AI OPTIMIZATION REPORT\n` +
             `================================================\n` +
-            `Provider : Google Gemini (${aiResult.model || 'gemini-1.5-flash'})\n` +
-            `Status   : Real Model Generation via Server BYOK\n\n` +
+            `Provider : ${providerLabel}\n` +
+            `Status   : Real Model Generation via BYOK\n\n` +
             `EXPERT ANALYSIS:\n` +
             `${aiResult.analysis}\n\n` +
             `IMPROVEMENTS APPLIED:\n` +
@@ -83,8 +87,8 @@ export function initOptimizer() {
             reportEl.innerHTML = `<pre style="font-family:var(--font-mono); font-size:0.85rem; color:var(--text-secondary); white-space:pre-wrap;">${escapeHtml(report)}</pre>`;
           }
 
-          logHistory('Gemini AI Optimization', rawInput, 'Productivity');
-          showToast('Prompt successfully optimized with Gemini AI!');
+          logHistory(`AI Optimization (${aiResult.provider || 'AI'})`, rawInput, 'Productivity');
+          showToast(`Prompt optimized with ${aiResult.provider || 'AI'}!`);
         } else {
           // Fallback / Demo Engine
           const optimized = `### OPTIMIZED PROMPT (Pecut AI Local Engine)\n\nRole: Expert Domain Specialist & Senior Prompt Engineer\nObjective: ${rawInput}\n\nContext:\n- High-performance execution environment.\n- Maintain rigorous adherence to user directives without unnecessary verbosity.\n\nStep-by-Step Instructions:\n1. Conduct comprehensive analysis of the core objective.\n2. Execute structured transformation ensuring zero ambiguity.\n3. Format output cleanly according to professional standards.\n\nConstraints:\n- Avoid introductory fluff or conversational filler.\n- Ensure deterministic, reproducible outputs.\n\nOutput Format: Structured Markdown Report.`;
@@ -93,8 +97,8 @@ export function initOptimizer() {
 
           const metrics = analyzePromptLocally(rawInput);
           const notice = aiResult.error
-            ? `(Note: Server connection error: ${aiResult.error})\n\n`
-            : `(Note: To enable real AI optimization, set GEMINI_API_KEY in your .env file)\n\n`;
+            ? `(Note: Provider connection notice: ${aiResult.error})\n\n`
+            : `(Note: To enable real AI optimization, configure your API Key via topbar badge or Settings)\n\n`;
 
           const report =
             `LOCAL STRUCTURAL ANALYSIS (Demo Mode)\n` +
