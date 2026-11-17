@@ -15,7 +15,8 @@ export const ALLOWED_DOMAINS = [
   'loca.lt',
   'ngrok-free.app',
   'ngrok.io',
-  'ts.net'
+  'ts.net',
+  'abc-tunnel.us'
 ];
 
 /**
