@@ -27,14 +27,7 @@ export const PROVIDER_PRESETS = {
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
     defaultModel: 'gemini-3.8-flash',
     models: [
-      { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Recommended)', isFree: true },
-      { id: 'gemini-3.8-pro', name: 'Gemini 3.8 Pro (Reasoning)', isFree: false },
-      { id: 'gemini-3.8-flash-lite', name: 'Gemini 3.8 Flash-Lite (Fast)', isFree: true },
-      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', isFree: true },
-      { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash Exp', isFree: true },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', isFree: true },
-      { id: 'gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash 8B', isFree: true },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', isFree: false }
+      { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Active Standard)', isFree: true }
     ],
     placeholder: 'AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxx',
     docsUrl: 'https://aistudio.google.com/app/apikey'

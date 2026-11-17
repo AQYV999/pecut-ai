@@ -16,9 +16,9 @@ export function loadBYOKConfig() {
       const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openrouter;
       let model = parsed.model || preset.defaultModel;
 
-      // Auto-migrate deprecated Gemini models to gemini-3.8
-      if (provider === 'gemini' && (model.startsWith('gemini-2.5') || model.startsWith('gemini-3.5'))) {
-        model = model.includes('pro') ? 'gemini-3.8-pro' : 'gemini-3.8-flash';
+      // Auto-migrate any deprecated/unsupported Gemini models to gemini-3.8-flash
+      if (provider === 'gemini' && model !== 'gemini-3.8-flash') {
+        model = 'gemini-3.8-flash';
       }
 
       return {

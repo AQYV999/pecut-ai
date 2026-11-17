@@ -93,51 +93,76 @@ export async function completeChat(options = {}) {
 
   const authHeader = apiKey ? (apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`) : 'Bearer none';
 
-  let res;
-  if (isLocalOrigin(targetUrl)) {
-    // Direct local dispatch (e.g. Ollama / LMStudio)
-    res = await fetch(targetUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authHeader
-      },
-      body: JSON.stringify(payload)
-    });
-  } else {
-    // Cloud dispatch via universal proxy
-    res = await fetch('/api/ai/proxy', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authHeader,
-        'x-target-url': targetUrl
-      },
-      body: JSON.stringify(payload)
-    });
+  const maxRetries = 2;
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      let res;
+      if (isLocalOrigin(targetUrl)) {
+        // Direct local dispatch (e.g. Ollama / LMStudio)
+        res = await fetch(targetUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader
+          },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        // Cloud dispatch via universal proxy
+        res = await fetch('/api/ai/proxy', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader,
+            'x-target-url': targetUrl
+          },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      if (!res.ok) {
+        const rawData = await res.json().catch(() => ({}));
+        const errObj = Array.isArray(rawData) ? rawData[0] : rawData;
+        const msg = errObj?.error?.message 
+          || errObj?.error 
+          || (typeof errObj === 'string' ? errObj : `HTTP ${res.status}: ${res.statusText}`);
+
+        // If Google or another provider returns 503 or "high demand", auto-retry after backoff
+        const isHighDemand = res.status === 503 || msg.toLowerCase().includes('high demand') || msg.toLowerCase().includes('temporarily unavailable');
+        if (isHighDemand && attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
+          continue;
+        }
+
+        throw new Error(msg);
+      }
+
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error('AI provider returned an empty completion.');
+      }
+
+      return {
+        text: content,
+        raw: data,
+        provider,
+        model
+      };
+    } catch (err) {
+      lastError = err;
+      if (attempt >= maxRetries) throw err;
+      if (err.message && (err.message.toLowerCase().includes('high demand') || err.message.toLowerCase().includes('503'))) {
+        await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
   }
 
-  if (!res.ok) {
-    const rawData = await res.json().catch(() => ({}));
-    const errObj = Array.isArray(rawData) ? rawData[0] : rawData;
-    const msg = errObj?.error?.message 
-      || errObj?.error 
-      || (typeof errObj === 'string' ? errObj : `HTTP ${res.status}: ${res.statusText}`);
-    throw new Error(msg);
-  }
-
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error('AI provider returned an empty completion.');
-  }
-
-  return {
-    text: content,
-    raw: data,
-    provider,
-    model
-  };
+  throw lastError || new Error('AI request failed after retries.');
 }
 
 /**
