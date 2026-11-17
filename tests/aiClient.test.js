@@ -82,3 +82,28 @@ test('completeChat builds request without ReferenceError and uses configured mod
     globalThis.fetch = originalFetch;
   }
 });
+
+test('testAIConnection executes successfully and returns formatted status', async () => {
+  const { testAIConnection } = await import('../src/services/ai/client.js');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      choices: [{ message: { content: 'pong' } }]
+    })
+  });
+
+  try {
+    const result = await testAIConnection({
+      provider: 'gemini',
+      apiKey: 'AIzaSyMockKey',
+      model: 'gemini-1.5-flash',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai'
+    });
+    assert.equal(result.success, true);
+    assert.match(result.message, /Connected successfully to gemini/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
