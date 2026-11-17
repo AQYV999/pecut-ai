@@ -96,6 +96,10 @@ interface WorkspaceState {
 - `importWorkspacesJSON(jsonString: string): boolean`
 
 ### 4.3 UI Layout & Components
+- **DOM Identifier Convention:** Follows Pecut AI navigation convention: `<section id="view-canvas" class="view-section">` and `<a href="#canvas" class="nav-item" data-nav="canvas">`.
+- **Navigation Integration:** Linked into `src/modules/navigation.js` (with title `'Workspace Canvas'`), `commandPalette.js` (`data-target="canvas"`), and Overview dashboard quick actions.
+- **Mobile Responsiveness:** On viewports < 768px, display a segmented toggle bar `[💬 Chat | 📄 Canvas]` to focus on one pane at a time, and constrain padding to `1rem`.
+
 ```
 +-----------------------------------------------------------------------------------------+
 | [≡ Projects] |             CHAT PANE                 |        CANVAS / DOCUMENT         |
@@ -113,13 +117,14 @@ interface WorkspaceState {
 +-----------------------------------------------------------------------------------------+
 ```
 
-### 4.4 Chat Logic & Provider Integration
-- Uses `completeChat()` from `src/services/ai/client.js`.
-- Chat history is maintained and passed in `options.messages` (limited to last 10 turns to avoid token overflow).
-- System prompt incorporates Pecut AI Canvas assistant instructions:
-  - Specialize in prompt engineering, technical authoring, and content refining.
-  - When outputting a prompt or document update, format it with clear headings so the user can easily review or push it to the Canvas.
-- Error handling with auto-retry and friendly toast alerts.
+### 4.4 Chat Logic, Storage Quota & Guardrails
+- **Transport Reuse:** Uses `completeChat()` from `src/services/ai/client.js` with active BYOK credentials.
+- **Sliding Context Window:** Sends the last 10 messages to the LLM to fit token limits on all models.
+- **Storage Quota Bounding:** Retains up to 50 latest messages per workspace in `localStorage`.
+- **Debounced Auto-Save:** Canvas document changes auto-save with a 400ms debounce.
+- **Starter Workspace:** On initial launch or if all workspaces are deleted, auto-creates a starter workspace (*"Prompt Workspace 1"* with helpful starter text).
+- **Zero-Key Empty State:** If no API key is configured, chat displays a friendly notice with a 1-click button to open the BYOK modal.
+- **Persona Infusion:** If a Context Profile is selected in the workspace, its role, tone, and constraints are automatically injected into the chat system prompt.
 
 ---
 
