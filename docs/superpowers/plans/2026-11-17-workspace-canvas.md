@@ -44,21 +44,21 @@
   - `exportWorkspacesJSON(): string`
   - `importWorkspacesJSON(jsonString: string): boolean`
 
-- [ ] **Step 1: Write the failing tests in `tests/workspaceStorage.test.js`**
+- [x] **Step 1: Write the failing tests in `tests/workspaceStorage.test.js`**
   Cover initialization, create, update, delete, active fallback, and JSON export/import.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
   Run: `node --test tests/workspaceStorage.test.js`
   Expected: FAIL with "Cannot find module '../src/modules/workspaceStorage.js'"
 
-- [ ] **Step 3: Implement `src/modules/workspaceStorage.js`**
+- [x] **Step 3: Implement `src/modules/workspaceStorage.js`**
   Implement localStorage persistence under `pecut_workspaces`, auto-initialization of default starter workspace, debounced storage sync, and serialization.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
   Run: `node --test tests/workspaceStorage.test.js`
   Expected: PASS (all tests pass)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
   ```bash
   git add src/modules/workspaceStorage.js tests/workspaceStorage.test.js
   git commit -m "feat(storage): implement workspaceStorage module with unit tests"
@@ -77,24 +77,24 @@
 - Consumes: `switchView('canvas')` from `src/modules/navigation.js`
 - Produces: DOM elements `#view-canvas`, `#canvasSidebar`, `#canvasChatPane`, `#canvasDocPane`, `#canvasMobileToggle`
 
-- [ ] **Step 1: Add Canvas Nav Item & View Section in `index.html`**
+- [x] **Step 1: Add Canvas Nav Item & View Section in `index.html`**
   - Add `<a href="#canvas" class="nav-item" data-nav="canvas">` in the Workspace navigation group.
   - Add `<section id="view-canvas" class="view-section">` with full split-screen DOM (collapsible project sidebar, chat stream, message input, prompt document editor, action toolbar).
   - Add command palette entry `<div class="cmd-item" data-action="nav" data-target="canvas">`.
 
-- [ ] **Step 2: Add View Title Mapping in `src/modules/navigation.js`**
+- [x] **Step 2: Add View Title Mapping in `src/modules/navigation.js`**
   Add `'canvas': 'Workspace Canvas'` to `titles` object in `src/modules/navigation.js`.
 
-- [ ] **Step 3: Add Dual-Pane Layout Styles in `style.css`**
+- [x] **Step 3: Add Dual-Pane Layout Styles in `style.css`**
   - Layout styles for `.workspace-canvas-container`, `.workspace-sidebar`, `.workspace-chat-pane`, `.workspace-doc-pane`.
   - Message styling (`.chat-msg-user`, `.chat-msg-assistant`, `.chat-msg-apply-btn`).
   - Mobile responsive rules for `@media (max-width: 768px)` with segmented toggle and reduced content padding.
 
-- [ ] **Step 4: Verify test suite and build**
+- [x] **Step 4: Verify test suite and build**
   Run: `npm test && npm run build`
   Expected: All tests pass, build compiles cleanly.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
   ```bash
   git add index.html style.css src/modules/navigation.js
   git commit -m "feat(ui): add workspace canvas markup, navigation mapping, and dual-pane styles"
@@ -115,7 +115,7 @@
   - `showToast` from `src/utils/helpers.js`
 - Produces: `initCanvas(): void`, `renderCanvas(): void`, `sendChatMessage(): Promise<void>`
 
-- [ ] **Step 1: Implement `src/modules/canvas.js`**
+- [x] **Step 1: Implement `src/modules/canvas.js`**
   - Render workspace project list in sidebar with "+ New Workspace", rename, and delete actions.
   - Render active workspace title, document editor with debounced auto-save (400ms).
   - Render chat history stream with markdown-friendly formatting.
@@ -128,14 +128,14 @@
   - Implement mobile segmented toggle (`[💬 Chat] | [📄 Canvas]`).
   - Wire export/download as Markdown (`.md`).
 
-- [ ] **Step 2: Wire `initCanvas()` in `src/main.js`**
+- [x] **Step 2: Wire `initCanvas()` in `src/main.js`**
   Import `initCanvas` and call it during application startup.
 
-- [ ] **Step 3: Verify tests and compile build**
+- [x] **Step 3: Verify tests and compile build**
   Run: `npm test && npm run build`
   Expected: All tests pass, build succeeds with 0 errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
   ```bash
   git add src/modules/canvas.js src/main.js
   git commit -m "feat(canvas): implement interactive multi-turn chat controller and document editor"
@@ -155,19 +155,19 @@
   - Context profiles from `appState.profiles` in `src/modules/storage.js`
 - Produces: Seamless cross-tab workflow: Canvas -> Optimizer -> Export.
 
-- [ ] **Step 1: Implement "⚡ Send to Optimizer"**
+- [x] **Step 1: Implement "⚡ Send to Optimizer"**
   - When clicking "Send to Optimizer" in Canvas toolbar, populate `#optimizerPromptInput` (or active optimizer textarea), switch view to `optimizer`, and trigger `showToast('Prompt sent to Optimizer!')`.
 
-- [ ] **Step 2: Implement Context Profile Selector in Canvas Header**
+- [x] **Step 2: Implement Context Profile Selector in Canvas Header**
   - Render dropdown of available profiles (`Senior Engineer`, `Growth Marketer`, etc.) in chat pane.
   - Persist chosen profile on the workspace item (`workspace.contextProfileId`).
   - Automatically inject the persona's role, tone, and constraints into the chat assistant's system prompt.
 
-- [ ] **Step 3: Run full test suite**
+- [x] **Step 3: Run full test suite**
   Run: `npm test`
   Expected: 33+ tests pass with 0 failures.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
   ```bash
   git add src/modules/canvas.js src/modules/optimizer.js
   git commit -m "feat(integration): connect canvas with optimizer and context profile personas"
@@ -180,17 +180,17 @@
 **Files:**
 - All workspace files from Tasks 1-4.
 
-- [ ] **Step 1: Run comprehensive tests & production build**
+- [x] **Step 1: Run comprehensive tests & production build**
   Run: `npm test && npm run build`
   Expected: 100% test pass rate, bundle compiled into `dist/`.
 
-- [ ] **Step 2: Deploy to Vercel production**
+- [x] **Step 2: Deploy to Vercel production**
   Run: `npx vercel --prod --yes`
   Expected: Deployment succeeds, aliased to `https://pecut-ai-three.vercel.app`.
 
-- [ ] **Step 3: Push all commits to GitHub main branch**
+- [x] **Step 3: Push all commits to GitHub main branch**
   Run: `git push origin main`
   Expected: Pushed cleanly.
 
-- [ ] **Step 4: Verify live deployment in browser**
+- [x] **Step 4: Verify live deployment in browser**
   Verify that `https://pecut-ai-three.vercel.app` loads the new Workspace Canvas tab, creates workspaces, chats with AI, and updates canvas.
