@@ -4,6 +4,55 @@
  */
 
 import { DEFAULT_PROFILES } from '../data/profiles.js';
+import { PROVIDER_PRESETS } from '../data/models.js';
+
+// BYOK (Bring Your Own Key) Storage Configuration
+export function loadBYOKConfig() {
+  try {
+    const raw = localStorage.getItem('pecut_byok_config');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const provider = parsed.provider || 'openrouter';
+      const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openrouter;
+      return {
+        provider,
+        apiKey: parsed.apiKey || '',
+        model: parsed.model || preset.defaultModel,
+        baseUrl: parsed.baseUrl || preset.baseUrl
+      };
+    }
+  } catch (_) {
+    // fallback to default
+  }
+
+  const defaultPreset = PROVIDER_PRESETS.openrouter;
+  return {
+    provider: 'openrouter',
+    apiKey: '',
+    model: defaultPreset.defaultModel,
+    baseUrl: defaultPreset.baseUrl
+  };
+}
+
+export function saveBYOKConfig(config) {
+  if (!config || typeof config !== 'object') return;
+  const provider = config.provider || 'openrouter';
+  const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openrouter;
+  const payload = {
+    provider,
+    apiKey: (config.apiKey || '').trim(),
+    model: config.model || preset.defaultModel,
+    baseUrl: config.baseUrl || preset.baseUrl,
+    updatedAt: new Date().toISOString()
+  };
+  localStorage.setItem('pecut_byok_config', JSON.stringify(payload));
+  appState.byok = payload;
+}
+
+export function clearBYOKConfig() {
+  localStorage.removeItem('pecut_byok_config');
+  appState.byok = loadBYOKConfig();
+}
 
 // SECURITY: legacy `apiKey` and `provider` are stripped from persisted settings.
 // Secrets must never live in the browser's localStorage.
@@ -57,7 +106,8 @@ export const appState = {
   savedPrompts: loadSavedPrompts(),
   history: loadHistory(),
   settings: loadSettings(),
-  profiles: loadProfiles()
+  profiles: loadProfiles(),
+  byok: loadBYOKConfig()
 };
 
 export function applyTheme(theme) {
