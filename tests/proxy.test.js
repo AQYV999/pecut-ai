@@ -86,7 +86,7 @@ test('handleProxyRequest rejects missing Authorization header with 400', async (
   await handleProxyRequest(req, res);
 
   assert.equal(statusCode, 400);
-  assert.ok(responseData.includes('Missing required Authorization header'));
+  assert.ok(responseData.includes('Missing required Authorization'));
 });
 
 test('handleProxyRequest forwards GET requests cleanly', async () => {

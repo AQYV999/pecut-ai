@@ -41,7 +41,7 @@ export async function handleProxyRequest(req, res) {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-target-url',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-target-url, x-goog-api-key',
       'Access-Control-Max-Age': '86400'
     });
     return res.end();
@@ -67,9 +67,10 @@ export async function handleProxyRequest(req, res) {
   }
 
   const authHeader = req.headers['authorization'];
-  if (!authHeader) {
+  const googKeyHeader = req.headers['x-goog-api-key'];
+  if (!authHeader && !googKeyHeader) {
     res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    return res.end(JSON.stringify({ error: 'Missing required Authorization header.' }));
+    return res.end(JSON.stringify({ error: 'Missing required Authorization or x-goog-api-key header.' }));
   }
 
   // Parse body only for POST
@@ -90,12 +91,15 @@ export async function handleProxyRequest(req, res) {
   }
 
   try {
+    const upstreamHeaders = {
+      'Content-Type': 'application/json'
+    };
+    if (authHeader) upstreamHeaders['Authorization'] = authHeader;
+    if (googKeyHeader) upstreamHeaders['x-goog-api-key'] = googKeyHeader;
+
     const fetchOptions = {
       method: req.method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authHeader
-      },
+      headers: upstreamHeaders,
       signal: AbortSignal.timeout(12000)
     };
     if (req.method === 'POST' && bodyBuffer) {

@@ -107,3 +107,36 @@ test('testAIConnection executes successfully and returns formatted status', asyn
     globalThis.fetch = originalFetch;
   }
 });
+
+test('fetchProviderModels queries Gemini models using x-goog-api-key', async () => {
+  const { fetchProviderModels } = await import('../src/services/ai/client.js');
+  const originalFetch = globalThis.fetch;
+  let interceptedHeaders = {};
+
+  globalThis.fetch = async (url, opts) => {
+    interceptedHeaders = opts.headers;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        models: [
+          { name: 'models/gemini-3.8-flash', displayName: 'Gemini 3.8 Flash', supportedGenerationMethods: ['generateContent'] },
+          { name: 'models/text-embedding-004', displayName: 'Text Embedding 004', supportedGenerationMethods: ['embedContent'] }
+        ]
+      })
+    };
+  };
+
+  try {
+    const list = await fetchProviderModels({
+      provider: 'gemini',
+      apiKey: 'AIzaSyGeminiKey123'
+    });
+    assert.equal(list.length, 1);
+    assert.equal(list[0].id, 'gemini-3.8-flash');
+    assert.equal(interceptedHeaders['x-goog-api-key'], 'AIzaSyGeminiKey123');
+    assert.equal(interceptedHeaders['Authorization'], undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

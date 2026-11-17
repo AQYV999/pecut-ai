@@ -177,29 +177,34 @@ export async function fetchProviderModels(config) {
   const baseUrl = (config.baseUrl || preset.baseUrl).replace(/\/+$/, '');
 
   let modelsUrl = '';
+  const headers = {};
+
   if (provider === 'gemini') {
     modelsUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
+    if (apiKey) {
+      headers['x-goog-api-key'] = apiKey;
+    }
   } else if (provider === 'openrouter') {
     modelsUrl = 'https://openrouter.ai/api/v1/models';
+    if (apiKey) headers['Authorization'] = apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`;
   } else if (provider === 'groq') {
     modelsUrl = 'https://api.groq.com/openai/v1/models';
+    if (apiKey) headers['Authorization'] = apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`;
   } else if (provider === 'openai') {
     modelsUrl = 'https://api.openai.com/v1/models';
+    if (apiKey) headers['Authorization'] = apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`;
   } else {
     modelsUrl = `${baseUrl.replace(/\/chat\/completions$/, '')}/models`;
+    if (apiKey) headers['Authorization'] = apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`;
   }
-
-  const authHeader = apiKey ? (apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`) : '';
 
   let res;
   if (isLocalOrigin(modelsUrl)) {
-    res = await fetch(modelsUrl, {
-      headers: authHeader ? { 'Authorization': authHeader } : {}
-    });
+    res = await fetch(modelsUrl, { headers });
   } else {
     res = await fetch('/api/ai/proxy', {
       headers: {
-        'Authorization': authHeader || 'Bearer none',
+        ...headers,
         'x-target-url': modelsUrl
       }
     });
@@ -214,6 +219,12 @@ export async function fetchProviderModels(config) {
   const data = await res.json();
   const rawList = data.data || data.models || [];
   return rawList
+    .filter(m => {
+      if (m.supportedGenerationMethods && Array.isArray(m.supportedGenerationMethods)) {
+        return m.supportedGenerationMethods.includes('generateContent');
+      }
+      return true;
+    })
     .map(m => {
       const id = m.id || m.name?.replace(/^models\//, '');
       return {
