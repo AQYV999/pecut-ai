@@ -196,3 +196,37 @@ test('parseRobustJson handles trailing SSE tokens like data: [DONE] from 9Router
   const messyData = await parseRobustJson(messyRes);
   assert.equal(messyData.choices[0].message.content, 'hello');
 });
+
+test('completeChat falls back to reasoning content when content is null or array', async () => {
+  const { completeChat } = await import('../src/services/ai/client.js');
+  const originalFetch = globalThis.fetch;
+
+  // Mock reasoning response (like VibeCoding / DeepSeek R1)
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({
+      choices: [{
+        message: {
+          role: 'assistant',
+          content: null,
+          reasoning: 'Calculated pong response'
+        }
+      }]
+    })
+  });
+
+  try {
+    const res = await completeChat({
+      messages: [{ role: 'user', content: 'Say pong' }],
+      overrideConfig: {
+        provider: 'ninerouter',
+        baseUrl: 'http://localhost:20128/v1',
+        model: 'VibeCoding'
+      }
+    });
+    assert.equal(res.text, 'Calculated pong response');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

@@ -219,8 +219,25 @@ export async function completeChat(options = {}) {
       }
 
       const data = await parseRobustJson(res);
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) {
+      const choice = data.choices?.[0];
+      const message = choice?.message;
+
+      let content = message?.content;
+      if (Array.isArray(content)) {
+        content = content.map(part => part?.text || part?.content || (typeof part === 'string' ? part : '')).join('');
+      }
+
+      // Fallback to reasoning / thinking tokens if content is empty or null (e.g. DeepSeek-R1 / Nemotron / VibeCoding)
+      if (!content && (message?.reasoning || message?.reasoning_content)) {
+        content = message.reasoning || message.reasoning_content;
+      }
+
+      // Fallback to legacy completion text
+      if (!content && choice?.text) {
+        content = choice.text;
+      }
+
+      if (!content && typeof content !== 'string') {
         throw new Error('AI provider returned an empty completion.');
       }
 
@@ -361,7 +378,7 @@ export async function testAIConnection(config) {
   try {
     const res = await completeChat({
       messages: [{ role: 'user', content: 'Say "pong"' }],
-      maxTokens: 5,
+      maxTokens: 100,
       overrideConfig: config
     });
     const latencyMs = Date.now() - startTime;
