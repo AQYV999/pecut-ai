@@ -13,6 +13,7 @@ import { initSettings } from './modules/settings.js';
 import { initProfiles } from './modules/profiles.js';
 import { initFlow } from './modules/flow.js';
 import { initCanvas } from './modules/canvas.js';
+import { initAIChat } from './modules/chat.js';
 import { initCommandPalette } from './modules/commandPalette.js';
 import { initAIModal, updateTopbarAIStatus } from './modules/aiModal.js';
 import { updateGlobalCounters, applyTheme, appState } from './modules/storage.js';
@@ -32,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initProfiles();
   initFlow();
   initCanvas();
+  initAIChat();
   initSettings();
   initCommandPalette();
   initAIModal();

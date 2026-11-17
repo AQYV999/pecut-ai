@@ -30,6 +30,7 @@ export function switchView(viewId) {
   // Update topbar title
   const titles = {
     overview: 'Overview',
+    chat: 'AI Chat Playground (Coding & Web)',
     canvas: 'Workspace Canvas',
     builder: 'Prompt Builder',
     optimizer: 'Prompt Optimizer',

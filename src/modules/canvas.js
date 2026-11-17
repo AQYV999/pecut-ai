@@ -339,10 +339,12 @@ export async function sendChatMessage() {
 
   try {
     // Construct persona-infused system prompt
-    let systemPrompt = `You are Pecut AI Canvas Assistant, an elite AI prompt engineer and content craftsman.
-Your goal is to converse with the user, brainstorm, and craft production-grade prompts and deliverables.
-When providing prompts or templates, format them clearly using Markdown headings (#, ##, -) so they can be reviewed and applied to the user's Canvas.
-Always be concise, precise, and practical.`;
+    let systemPrompt = `You are Pecut AI, a versatile, intelligent AI assistant and expert coder (similar to Hermes, Claude, and OpenCoder).
+Directly fulfill the user's request:
+- If the user asks for code, web HTML/CSS/JS, Python scripts, or full pages: write the complete, functional code directly in appropriate markdown code fences. Do NOT write a prompt about it; build the actual code requested!
+- If the user asks a question, requests an explanation, analysis, or creative writing: answer directly and thoroughly.
+- If the user asks to design or optimize a prompt: craft the structured prompt.
+- Always be helpful, precise, and output clean Markdown with language tags for all code blocks.`;
 
     if (ws.contextProfileId) {
       const profile = (appState.profiles || []).find(p => p.id === ws.contextProfileId);
