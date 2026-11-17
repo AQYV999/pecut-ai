@@ -73,6 +73,7 @@ export async function completeChat(options = {}) {
   const apiKey = (config.apiKey || '').trim();
   const provider = config.provider || 'openrouter';
   const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openrouter;
+  const model = config.model || preset.defaultModel;
   let baseUrl = (config.baseUrl || preset.baseUrl).replace(/\/+$/, '');
   if (provider === 'gemini' && baseUrl.includes('generativelanguage.googleapis.com') && !baseUrl.includes('/openai')) {
     baseUrl = `${baseUrl}/openai`;

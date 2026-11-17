@@ -40,3 +40,45 @@ test('buildChatPayload handles missing systemPrompt gracefully', () => {
   assert.equal(payload.messages[0].role, 'user');
   assert.equal(payload.messages[0].content, 'Test prompt');
 });
+
+test('completeChat builds request without ReferenceError and uses configured model', async () => {
+  const { completeChat } = await import('../src/services/ai/client.js');
+  
+  // Mock global fetch to intercept the request and verify payload
+  const originalFetch = globalThis.fetch;
+  let interceptedUrl = '';
+  let interceptedBody = null;
+
+  globalThis.fetch = async (url, options) => {
+    interceptedUrl = url;
+    interceptedBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [
+          { message: { content: 'Test response from mock' } }
+        ]
+      })
+    };
+  };
+
+  try {
+    const res = await completeChat({
+      messages: [{ role: 'user', content: 'test ping' }],
+      overrideConfig: {
+        provider: 'gemini',
+        apiKey: 'AIzaSyMockKey',
+        model: 'gemini-2.5-flash',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai'
+      }
+    });
+
+    assert.equal(res.text, 'Test response from mock');
+    assert.equal(res.model, 'gemini-2.5-flash');
+    assert.equal(interceptedBody.model, 'gemini-2.5-flash');
+    assert.equal(interceptedUrl, '/api/ai/proxy');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
