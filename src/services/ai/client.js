@@ -29,6 +29,51 @@ export function isLocalOrigin(urlString) {
 }
 
 /**
+ * Safely parses JSON from a Response object, gracefully handling trailing SSE tokens
+ * (e.g. 9Router appending `data: [DONE]` after completions).
+ * @param {Response} res
+ * @returns {Promise<any>}
+ */
+export async function parseRobustJson(res) {
+  if (typeof res.text !== 'function' && typeof res.json === 'function') {
+    return res.json();
+  }
+  const text = typeof res.text === 'function' ? await res.text() : JSON.stringify(await res.json());
+  try {
+    return JSON.parse(text);
+  } catch (initialErr) {
+    // 1. Strip trailing SSE signals like "data: [DONE]"
+    const stripped = text.replace(/\s*data:\s*\[DONE\]\s*$/i, '').trim();
+    try {
+      return JSON.parse(stripped);
+    } catch (_) {}
+
+    // 2. Extract first matching valid JSON block
+    const firstBrace = text.indexOf('{');
+    const firstBracket = text.indexOf('[');
+    let startIdx = -1;
+    if (firstBrace !== -1 && firstBracket !== -1) {
+      startIdx = Math.min(firstBrace, firstBracket);
+    } else if (firstBrace !== -1) {
+      startIdx = firstBrace;
+    } else if (firstBracket !== -1) {
+      startIdx = firstBracket;
+    }
+
+    if (startIdx !== -1) {
+      for (let endIdx = text.length; endIdx > startIdx; endIdx--) {
+        const candidate = text.slice(startIdx, endIdx).trim();
+        try {
+          return JSON.parse(candidate);
+        } catch (_) {}
+      }
+    }
+
+    throw initialErr;
+  }
+}
+
+/**
  * Builds a standardized OpenAI-compatible Chat Completion request payload.
  * @param {Object} options
  * @param {string} options.model
@@ -157,7 +202,7 @@ export async function completeChat(options = {}) {
       }
 
       if (!res.ok) {
-        const rawData = await res.json().catch(() => ({}));
+        const rawData = await parseRobustJson(res).catch(() => ({}));
         const errObj = Array.isArray(rawData) ? rawData[0] : rawData;
         const msg = errObj?.error?.message 
           || errObj?.error 
@@ -173,7 +218,7 @@ export async function completeChat(options = {}) {
         throw new Error(msg);
       }
 
-      const data = await res.json();
+      const data = await parseRobustJson(res);
       const content = data.choices?.[0]?.message?.content;
       if (!content) {
         throw new Error('AI provider returned an empty completion.');
@@ -282,12 +327,12 @@ export async function fetchProviderModels(config) {
   }
 
   if (!res.ok) {
-    const rawData = await res.json().catch(() => ({}));
+    const rawData = await parseRobustJson(res).catch(() => ({}));
     const errObj = Array.isArray(rawData) ? rawData[0] : rawData;
     throw new Error(errObj?.error?.message || errObj?.error || `HTTP ${res.status}: Failed to fetch models`);
   }
 
-  const data = await res.json();
+  const data = await parseRobustJson(res);
   const rawList = data.data || data.models || [];
   return rawList
     .filter(m => {

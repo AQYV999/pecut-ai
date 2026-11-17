@@ -171,3 +171,28 @@ test('fetchProviderModels queries 9Router models and maps id and name properly',
     globalThis.fetch = originalFetch;
   }
 });
+
+test('parseRobustJson handles trailing SSE tokens like data: [DONE] from 9Router', async () => {
+  const { parseRobustJson } = await import('../src/services/ai/client.js');
+
+  // Case 1: Standard clean JSON
+  const cleanRes = {
+    text: async () => '{"choices":[{"message":{"content":"pong"}}]}'
+  };
+  const cleanData = await parseRobustJson(cleanRes);
+  assert.equal(cleanData.choices[0].message.content, 'pong');
+
+  // Case 2: 9Router response with trailing data: [DONE]
+  const sseTrailingRes = {
+    text: async () => '{"choices":[{"message":{"content":"pong"}}]}\ndata: [DONE]'
+  };
+  const sseData = await parseRobustJson(sseTrailingRes);
+  assert.equal(sseData.choices[0].message.content, 'pong');
+
+  // Case 3: 9Router response with unexpected whitespace & trailing markers
+  const messyRes = {
+    text: async () => '{"id":"chatcmpl-123","choices":[{"message":{"content":"hello"}}]}\n\ndata: [DONE]\n'
+  };
+  const messyData = await parseRobustJson(messyRes);
+  assert.equal(messyData.choices[0].message.content, 'hello');
+});
