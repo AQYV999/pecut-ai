@@ -1,0 +1,238 @@
+/**
+ * Pecut AI — AI Connection & BYOK Modal Controller
+ * Apache-2.0 License
+ */
+
+import { PROVIDER_PRESETS } from '../data/models.js';
+import { loadBYOKConfig, saveBYOKConfig, clearBYOKConfig } from './storage.js';
+import { testAIConnection, getActiveProviderInfo } from '../services/ai/client.js';
+import { showToast, escapeHtml } from '../utils/helpers.js';
+
+let activeDraftProvider = 'openrouter';
+
+export function updateTopbarAIStatus() {
+  const info = getActiveProviderInfo();
+  const apiStatusEl = document.getElementById('apiStatusText');
+  const dotEl = document.querySelector('.api-status-badge .status-dot');
+
+  if (apiStatusEl) {
+    if (info.hasKey) {
+      apiStatusEl.textContent = `${info.name} (${info.model.split('/').pop().replace(':free', '')})`;
+      if (dotEl) dotEl.style.backgroundColor = '#10b981';
+    } else {
+      apiStatusEl.textContent = 'Demo Engine (BYOK Ready)';
+      if (dotEl) dotEl.style.backgroundColor = '#f59e0b';
+    }
+  }
+
+  const settingsSummary = document.getElementById('settingsActiveProviderSummary');
+  if (settingsSummary) {
+    if (info.hasKey) {
+      settingsSummary.innerHTML = `Active Provider: <strong>${escapeHtml(info.name)}</strong> • Model: <code>${escapeHtml(info.model)}</code>`;
+    } else {
+      settingsSummary.innerHTML = 'Active: <em>Demo Engine (No key configured — Click to connect OpenRouter / Gemini / Groq)</em>';
+    }
+  }
+}
+
+export function renderModelPresets(providerId, currentModel) {
+  const container = document.getElementById('byokModelPresets');
+  if (!container) return;
+
+  const preset = PROVIDER_PRESETS[providerId] || PROVIDER_PRESETS.openrouter;
+  const models = preset.models || [];
+
+  container.innerHTML = models.map(m => {
+    const isSelected = m.id === currentModel;
+    return `
+      <button type="button" class="model-pill ${isSelected ? 'active' : ''}" data-model-id="${escapeHtml(m.id)}">
+        <span>${escapeHtml(m.name)}</span>
+        ${m.isFree ? '<span class="pill-free-tag">Free</span>' : ''}
+      </button>
+    `;
+  }).join('');
+
+  container.querySelectorAll('.model-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const modelId = pill.getAttribute('data-model-id');
+      const modelInput = document.getElementById('byokModelInput');
+      if (modelInput) modelInput.value = modelId;
+
+      container.querySelectorAll('.model-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+    });
+  });
+}
+
+export function openAIModal() {
+  const modal = document.getElementById('aiConnectionModal');
+  if (!modal) return;
+
+  const config = loadBYOKConfig();
+  activeDraftProvider = config.provider || 'openrouter';
+
+  const providerSelect = document.getElementById('byokProviderSelect');
+  const baseUrlInput = document.getElementById('byokBaseUrlInput');
+  const apiKeyInput = document.getElementById('byokApiKeyInput');
+  const modelInput = document.getElementById('byokModelInput');
+  const docsLink = document.getElementById('byokGetDocsLink');
+  const testStatus = document.getElementById('byokTestStatus');
+
+  if (testStatus) {
+    testStatus.textContent = '';
+    testStatus.className = 'test-status-text';
+  }
+
+  if (providerSelect) providerSelect.value = activeDraftProvider;
+  if (baseUrlInput) baseUrlInput.value = config.baseUrl;
+  if (apiKeyInput) {
+    apiKeyInput.value = config.apiKey;
+    apiKeyInput.type = 'password';
+  }
+  if (modelInput) modelInput.value = config.model;
+
+  const preset = PROVIDER_PRESETS[activeDraftProvider] || PROVIDER_PRESETS.openrouter;
+  if (docsLink) {
+    docsLink.href = preset.docsUrl;
+    docsLink.textContent = `Get ${preset.name} Key ↗`;
+  }
+
+  renderModelPresets(activeDraftProvider, config.model);
+  modal.classList.add('active');
+}
+
+export function closeAIModal() {
+  const modal = document.getElementById('aiConnectionModal');
+  if (modal) modal.classList.remove('active');
+}
+
+export function initAIModal() {
+  const badgeBtn = document.getElementById('apiStatusBadge');
+  if (badgeBtn) badgeBtn.addEventListener('click', openAIModal);
+
+  const openSettingsBtn = document.getElementById('openByokModalBtn');
+  if (openSettingsBtn) openSettingsBtn.addEventListener('click', openAIModal);
+
+  const closeBtn = document.getElementById('closeAIModalBtn');
+  if (closeBtn) closeBtn.addEventListener('click', closeAIModal);
+
+  const cancelBtn = document.getElementById('byokCancelBtn');
+  if (cancelBtn) cancelBtn.addEventListener('click', closeAIModal);
+
+  // Toggle API key mask/unmask
+  const toggleKeyBtn = document.getElementById('byokToggleKeyBtn');
+  const apiKeyInput = document.getElementById('byokApiKeyInput');
+  if (toggleKeyBtn && apiKeyInput) {
+    toggleKeyBtn.addEventListener('click', () => {
+      apiKeyInput.type = apiKeyInput.type === 'password' ? 'text' : 'password';
+    });
+  }
+
+  // Provider change handler
+  const providerSelect = document.getElementById('byokProviderSelect');
+  if (providerSelect) {
+    providerSelect.addEventListener('change', () => {
+      const selected = providerSelect.value;
+      activeDraftProvider = selected;
+      const preset = PROVIDER_PRESETS[selected] || PROVIDER_PRESETS.openrouter;
+
+      const baseUrlInput = document.getElementById('byokBaseUrlInput');
+      const modelInput = document.getElementById('byokModelInput');
+      const apiKeyInput = document.getElementById('byokApiKeyInput');
+      const docsLink = document.getElementById('byokGetDocsLink');
+
+      if (baseUrlInput) baseUrlInput.value = preset.baseUrl;
+      if (modelInput) modelInput.value = preset.defaultModel;
+      if (apiKeyInput) apiKeyInput.placeholder = preset.placeholder;
+      if (docsLink) {
+        docsLink.href = preset.docsUrl;
+        docsLink.textContent = `Get ${preset.name} Key ↗`;
+      }
+
+      renderModelPresets(selected, preset.defaultModel);
+    });
+  }
+
+  // Test connection button
+  const testBtn = document.getElementById('byokTestBtn');
+  if (testBtn) {
+    testBtn.addEventListener('click', async () => {
+      const provider = document.getElementById('byokProviderSelect')?.value || 'openrouter';
+      const baseUrl = (document.getElementById('byokBaseUrlInput')?.value || '').trim();
+      const apiKey = (document.getElementById('byokApiKeyInput')?.value || '').trim();
+      const model = (document.getElementById('byokModelInput')?.value || '').trim();
+      const statusEl = document.getElementById('byokTestStatus');
+
+      if (!apiKey && provider !== 'custom') {
+        if (statusEl) {
+          statusEl.textContent = 'Please enter an API key first.';
+          statusEl.className = 'test-status-text error';
+        }
+        return;
+      }
+
+      const origHtml = testBtn.innerHTML;
+      testBtn.disabled = true;
+      testBtn.innerHTML = '<span>Testing...</span>';
+      if (statusEl) {
+        statusEl.textContent = 'Probing AI endpoint...';
+        statusEl.className = 'test-status-text';
+      }
+
+      const testResult = await testAIConnection({
+        provider,
+        baseUrl,
+        apiKey,
+        model
+      });
+
+      testBtn.disabled = false;
+      testBtn.innerHTML = origHtml;
+
+      if (statusEl) {
+        statusEl.textContent = testResult.message;
+        statusEl.className = testResult.success ? 'test-status-text success' : 'test-status-text error';
+      }
+    });
+  }
+
+  // Save button
+  const saveBtn = document.getElementById('byokSaveBtn');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      const provider = document.getElementById('byokProviderSelect')?.value || 'openrouter';
+      const baseUrl = (document.getElementById('byokBaseUrlInput')?.value || '').trim();
+      const apiKey = (document.getElementById('byokApiKeyInput')?.value || '').trim();
+      const model = (document.getElementById('byokModelInput')?.value || '').trim();
+
+      saveBYOKConfig({ provider, baseUrl, apiKey, model });
+      updateTopbarAIStatus();
+      closeAIModal();
+      showToast('AI Provider & BYOK settings saved to browser!');
+    });
+  }
+
+  // Clear button
+  const clearBtn = document.getElementById('byokClearBtn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to clear your saved API key and reset to demo mode?')) {
+        clearBYOKConfig();
+        const apiKeyInput = document.getElementById('byokApiKeyInput');
+        if (apiKeyInput) apiKeyInput.value = '';
+        updateTopbarAIStatus();
+        closeAIModal();
+        showToast('API Key cleared. Reverted to Demo mode.');
+      }
+    });
+  }
+
+  // Initial status paint
+  updateTopbarAIStatus();
+}
+
+// Window attachment for inline clicks
+if (typeof window !== 'undefined') {
+  window.openAIModal = openAIModal;
+  window.closeAIModal = closeAIModal;
+}
