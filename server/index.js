@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { callGeminiOptimizer, callGeminiGenerate } from './providers/gemini.js';
+import { handleProxyRequest } from '../api/ai/proxy.js';
 
 // Load .env if present
 try {
@@ -116,6 +117,11 @@ export function createPecutServer() {
     }
 
     const url = req.url.split('?')[0];
+
+    // API Route: Universal BYOK Proxy
+    if (url === '/api/ai/proxy') {
+      return handleProxyRequest(req, res);
+    }
 
     // API Route: Check AI status
     if (url === '/api/ai/status' && req.method === 'GET') {
