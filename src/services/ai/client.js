@@ -73,8 +73,10 @@ export async function completeChat(options = {}) {
   const apiKey = (config.apiKey || '').trim();
   const provider = config.provider || 'openrouter';
   const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openrouter;
-  const baseUrl = (config.baseUrl || preset.baseUrl).replace(/\/+$/, '');
-  const model = config.model || preset.defaultModel;
+  let baseUrl = (config.baseUrl || preset.baseUrl).replace(/\/+$/, '');
+  if (provider === 'gemini' && baseUrl.includes('generativelanguage.googleapis.com') && !baseUrl.includes('/openai')) {
+    baseUrl = `${baseUrl}/openai`;
+  }
 
   const targetUrl = baseUrl.endsWith('/chat/completions')
     ? baseUrl
@@ -115,8 +117,12 @@ export async function completeChat(options = {}) {
   }
 
   if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error?.message || errData.error || `HTTP ${res.status}: ${res.statusText}`);
+    const rawData = await res.json().catch(() => ({}));
+    const errObj = Array.isArray(rawData) ? rawData[0] : rawData;
+    const msg = errObj?.error?.message 
+      || errObj?.error 
+      || (typeof errObj === 'string' ? errObj : `HTTP ${res.status}: ${res.statusText}`);
+    throw new Error(msg);
   }
 
   const data = await res.json();

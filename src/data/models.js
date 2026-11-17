@@ -25,11 +25,18 @@ export const PROVIDER_PRESETS = {
     name: 'Google Gemini',
     badge: 'Google AI Studio',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    defaultModel: 'gemini-1.5-flash',
+    defaultModel: 'gemini-2.5-flash',
     models: [
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Fast)', isFree: true },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Reasoning)', isFree: false },
-      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', isFree: true }
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recommended)', isFree: true },
+      { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash (Latest Gen)', isFree: true },
+      { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite (Fast)', isFree: true },
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Reasoning)', isFree: false },
+      { id: 'gemini-3.5-pro', name: 'Gemini 3.5 Pro (Deep Reasoning)', isFree: false },
+      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', isFree: true },
+      { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash Exp', isFree: true },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Stable)', isFree: true },
+      { id: 'gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash 8B', isFree: true },
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', isFree: false }
     ],
     placeholder: 'AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxx',
     docsUrl: 'https://aistudio.google.com/app/apikey'
