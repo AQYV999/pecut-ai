@@ -166,6 +166,65 @@ export async function completeChat(options = {}) {
 }
 
 /**
+ * Fetches available models dynamically from the provider using the user's API key.
+ * @param {Object} config
+ * @returns {Promise<Array<{ id: string, name: string }>>}
+ */
+export async function fetchProviderModels(config) {
+  const provider = config.provider || 'openrouter';
+  const apiKey = (config.apiKey || '').trim();
+  const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openrouter;
+  const baseUrl = (config.baseUrl || preset.baseUrl).replace(/\/+$/, '');
+
+  let modelsUrl = '';
+  if (provider === 'gemini') {
+    modelsUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
+  } else if (provider === 'openrouter') {
+    modelsUrl = 'https://openrouter.ai/api/v1/models';
+  } else if (provider === 'groq') {
+    modelsUrl = 'https://api.groq.com/openai/v1/models';
+  } else if (provider === 'openai') {
+    modelsUrl = 'https://api.openai.com/v1/models';
+  } else {
+    modelsUrl = `${baseUrl.replace(/\/chat\/completions$/, '')}/models`;
+  }
+
+  const authHeader = apiKey ? (apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`) : '';
+
+  let res;
+  if (isLocalOrigin(modelsUrl)) {
+    res = await fetch(modelsUrl, {
+      headers: authHeader ? { 'Authorization': authHeader } : {}
+    });
+  } else {
+    res = await fetch('/api/ai/proxy', {
+      headers: {
+        'Authorization': authHeader || 'Bearer none',
+        'x-target-url': modelsUrl
+      }
+    });
+  }
+
+  if (!res.ok) {
+    const rawData = await res.json().catch(() => ({}));
+    const errObj = Array.isArray(rawData) ? rawData[0] : rawData;
+    throw new Error(errObj?.error?.message || errObj?.error || `HTTP ${res.status}: Failed to fetch models`);
+  }
+
+  const data = await res.json();
+  const rawList = data.data || data.models || [];
+  return rawList
+    .map(m => {
+      const id = m.id || m.name?.replace(/^models\//, '');
+      return {
+        id,
+        name: m.displayName || m.name || m.id
+      };
+    })
+    .filter(m => Boolean(m.id));
+}
+
+/**
  * Tests connection with a given provider configuration using a minimal 1-token probe.
  * @param {Object} config
  * @returns {Promise<{ success: boolean, message: string, latencyMs: number }>}

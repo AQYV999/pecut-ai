@@ -88,3 +88,38 @@ test('handleProxyRequest rejects missing Authorization header with 400', async (
   assert.equal(statusCode, 400);
   assert.ok(responseData.includes('Missing required Authorization header'));
 });
+
+test('handleProxyRequest forwards GET requests cleanly', async () => {
+  const req = {
+    method: 'GET',
+    headers: {
+      'x-target-url': 'https://api.groq.com/openai/v1/models',
+      authorization: 'Bearer gsk_test'
+    }
+  };
+  let statusCode = 0;
+  let responseData = '';
+  const res = {
+    writeHead: (status) => { statusCode = status; },
+    end: (data) => { responseData = data; }
+  };
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    assert.equal(opts.method, 'GET');
+    return {
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () => JSON.stringify({ data: [{ id: 'qwen/qwen3.8-27b' }] })
+    };
+  };
+
+  try {
+    const { handleProxyRequest } = await import('../api/ai/proxy.js');
+    await handleProxyRequest(req, res);
+    assert.equal(statusCode, 200);
+    assert.ok(responseData.includes('qwen/qwen3.8-27b'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

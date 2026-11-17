@@ -5,7 +5,7 @@
 
 import { PROVIDER_PRESETS } from '../data/models.js';
 import { loadBYOKConfig, saveBYOKConfig, clearBYOKConfig } from './storage.js';
-import { testAIConnection, getActiveProviderInfo } from '../services/ai/client.js';
+import { testAIConnection, getActiveProviderInfo, fetchProviderModels } from '../services/ai/client.js';
 import { showToast, escapeHtml } from '../utils/helpers.js';
 
 let activeDraftProvider = 'openrouter';
@@ -35,12 +35,12 @@ export function updateTopbarAIStatus() {
   }
 }
 
-export function renderModelPresets(providerId, currentModel) {
+export function renderModelPresets(providerId, currentModel, customModels = null) {
   const container = document.getElementById('byokModelPresets');
   if (!container) return;
 
   const preset = PROVIDER_PRESETS[providerId] || PROVIDER_PRESETS.openrouter;
-  const models = preset.models || [];
+  const models = customModels || preset.models || [];
 
   container.innerHTML = models.map(m => {
     const isSelected = m.id === currentModel;
@@ -150,6 +150,56 @@ export function initAIModal() {
       }
 
       renderModelPresets(selected, preset.defaultModel);
+    });
+  }
+
+  // Fetch live active models button
+  const fetchModelsBtn = document.getElementById('byokFetchModelsBtn');
+  if (fetchModelsBtn) {
+    fetchModelsBtn.addEventListener('click', async () => {
+      const provider = document.getElementById('byokProviderSelect')?.value || 'openrouter';
+      const baseUrl = (document.getElementById('byokBaseUrlInput')?.value || '').trim();
+      const apiKey = (document.getElementById('byokApiKeyInput')?.value || '').trim();
+      const statusEl = document.getElementById('byokTestStatus');
+
+      if (!apiKey && provider !== 'custom') {
+        if (statusEl) {
+          statusEl.textContent = 'Please enter an API key first to query live models.';
+          statusEl.className = 'test-status-text error';
+        }
+        return;
+      }
+
+      const origText = fetchModelsBtn.textContent;
+      fetchModelsBtn.disabled = true;
+      fetchModelsBtn.textContent = 'Fetching...';
+      if (statusEl) {
+        statusEl.textContent = 'Querying active models from provider...';
+        statusEl.className = 'test-status-text';
+      }
+
+      try {
+        const liveModels = await fetchProviderModels({ provider, baseUrl, apiKey });
+        if (liveModels && liveModels.length > 0) {
+          // Render the top chat-friendly models
+          renderModelPresets(provider, document.getElementById('byokModelInput')?.value, liveModels.slice(0, 16));
+          if (statusEl) {
+            statusEl.textContent = `Found ${liveModels.length} active models! Click any pill above to select.`;
+            statusEl.className = 'test-status-text success';
+          }
+          showToast(`Loaded ${liveModels.length} models from ${provider}!`);
+        } else {
+          throw new Error('No models found on this account.');
+        }
+      } catch (err) {
+        if (statusEl) {
+          statusEl.textContent = `Failed to fetch models: ${err.message}`;
+          statusEl.className = 'test-status-text error';
+        }
+      } finally {
+        fetchModelsBtn.disabled = false;
+        fetchModelsBtn.textContent = origText;
+      }
     });
   }
 

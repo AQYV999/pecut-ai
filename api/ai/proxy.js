@@ -40,16 +40,16 @@ export async function handleProxyRequest(req, res) {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-target-url',
       'Access-Control-Max-Age': '86400'
     });
     return res.end();
   }
 
-  if (req.method !== 'POST') {
+  if (req.method !== 'POST' && req.method !== 'GET') {
     res.writeHead(405, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    return res.end(JSON.stringify({ error: 'Method Not Allowed. Use POST.' }));
+    return res.end(JSON.stringify({ error: 'Method Not Allowed. Use GET or POST.' }));
   }
 
   const targetUrl = req.headers['x-target-url'];
@@ -72,31 +72,37 @@ export async function handleProxyRequest(req, res) {
     return res.end(JSON.stringify({ error: 'Missing required Authorization header.' }));
   }
 
-  // Parse body
-  let bodyBuffer = '';
-  if (req.body && typeof req.body === 'object') {
-    bodyBuffer = JSON.stringify(req.body);
-  } else if (typeof req.body === 'string') {
-    bodyBuffer = req.body;
-  } else {
-    bodyBuffer = await new Promise((resolve) => {
-      let data = '';
-      req.on('data', chunk => { data += chunk; });
-      req.on('end', () => resolve(data));
-      req.on('error', () => resolve(''));
-    });
+  // Parse body only for POST
+  let bodyBuffer = null;
+  if (req.method === 'POST') {
+    if (req.body && typeof req.body === 'object') {
+      bodyBuffer = JSON.stringify(req.body);
+    } else if (typeof req.body === 'string') {
+      bodyBuffer = req.body;
+    } else {
+      bodyBuffer = await new Promise((resolve) => {
+        let data = '';
+        req.on('data', chunk => { data += chunk; });
+        req.on('end', () => resolve(data));
+        req.on('error', () => resolve(''));
+      });
+    }
   }
 
   try {
-    const upstreamRes = await fetch(targetUrl, {
-      method: 'POST',
+    const fetchOptions = {
+      method: req.method,
       headers: {
         'Content-Type': 'application/json',
         'Authorization': authHeader
       },
-      body: bodyBuffer,
       signal: AbortSignal.timeout(12000)
-    });
+    };
+    if (req.method === 'POST' && bodyBuffer) {
+      fetchOptions.body = bodyBuffer;
+    }
+
+    const upstreamRes = await fetch(targetUrl, fetchOptions);
 
     const responseText = await upstreamRes.text();
     const contentType = upstreamRes.headers.get('content-type') || 'application/json';

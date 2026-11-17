@@ -37,11 +37,12 @@ export const PROVIDER_PRESETS = {
     name: 'Groq Cloud',
     badge: 'Ultra Fast Inference',
     baseUrl: 'https://api.groq.com/openai/v1',
-    defaultModel: 'llama-3.3-70b-versatile',
+    defaultModel: 'qwen/qwen3.8-27b',
     models: [
-      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile', isFree: true },
-      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant', isFree: true },
-      { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', isFree: true }
+      { id: 'qwen/qwen3.8-27b', name: 'Qwen 3.8 27B (High Speed)', isFree: true },
+      { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1 Distill 70B', isFree: true },
+      { id: 'gemma2-9b-it', name: 'Gemma 2 9B IT', isFree: true },
+      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant', isFree: true }
     ],
     placeholder: 'gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxx',
     docsUrl: 'https://console.groq.com/keys'
