@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-17
 - **Project:** Pecut AI (`pecut-ai`)
-- **Status:** Proposed (Brainstorming Milestone)
+- **Status:** Approved Draft (Builder Reviewed)
 
 ---
 
@@ -19,9 +19,9 @@ Users visiting the hosted Vercel site can input their own API key (e.g., from Op
 
 ### Goals
 1. **Multi-Provider UI:** A sleek, user-friendly settings modal in the UI where users can choose an AI provider (OpenRouter, Google Gemini, Groq, OpenAI, or Custom OpenAI-compatible URL), enter their API Key, and pick or type a Model ID.
-2. **Universal Vercel Proxy (`/api/ai/proxy`):** A lightweight Vercel serverless function (in `api/ai/proxy.js`) that forwards client requests to the chosen AI provider with the user's headers (`Authorization: Bearer <key>` or `x-goog-api-key`). This resolves all browser CORS issues cleanly.
-3. **Zero-Knowledge Privacy:** API keys are saved strictly in the user's browser `localStorage` on their own device. The Vercel proxy merely streams/relays requests in-flight and stores zero secrets, logs, or credentials.
-4. **Unified Client AI Service:** Refactor frontend AI calls in `src/services/ai/` into a single unified client (`aiClient.js`) that standardizes request and response formats for Optimizer, Flow, and future features.
+2. **Universal Vercel Proxy (`api/ai/proxy.js`):** A lightweight Vercel serverless function that forwards client requests to the chosen AI provider with the user's headers (`Authorization: Bearer <key>`). This resolves all browser CORS issues cleanly.
+3. **Zero-Knowledge Privacy:** API keys are saved strictly in the user's browser `localStorage` on their own device (`pecut_byok_config`). The Vercel proxy merely streams/relays requests in-flight and stores zero secrets, logs, or credentials.
+4. **Unified Client AI Service:** Refactor frontend AI calls into `src/services/ai/client.js` using the standard OpenAI-compatible chat completion payload format across all providers.
 5. **Local & Cloud Parity:** The local dev server (`server/index.js` or Vite proxy) and production Vercel deployment both support `/api/ai/proxy` seamlessly.
 6. **Deployable to Vercel in 1-Click:** Add `vercel.json` configuration so pushing to GitHub automatically builds and deploys the Vite app + serverless API route on Vercel's free tier.
 
@@ -40,7 +40,7 @@ Users visiting the hosted Vercel site can input their own API key (e.g., from Op
 ## 3. Constraints
 - **Stack:** Vite, Vanilla JavaScript ES Modules, Native Node.js (for serverless proxy and local server), CSS variables.
 - **Hosting:** Vercel Free Tier (Serverless Functions + Static Assets).
-- **CORS & Network:** All external API requests from the browser route through the lightweight proxy to prevent CORS blocking from strict providers.
+- **CORS & Network:** Public cloud providers route through `/api/ai/proxy` to eliminate browser CORS errors.
 - **Backwards Compatibility:** Existing prompt templates, library CRUD, context profiles, and flows must continue working with zero regression.
 
 ---
@@ -49,10 +49,10 @@ Users visiting the hosted Vercel site can input their own API key (e.g., from Op
 
 ### Approach 1: Pure Client-Side Direct Fetch (Jamstack)
 - *Description:* Browser directly calls AI provider endpoints via `fetch()`.
-- *Why Rejected:* While Google Gemini and OpenRouter support browser CORS, OpenAI, Anthropic, and many custom enterprise endpoints block direct browser origins with CORS errors. This would limit provider compatibility and confuse users when certain models fail.
+- *Why Rejected:* OpenAI, Anthropic, and many enterprise endpoints reject direct browser origins due to CORS policies.
 
 ### Approach 2: Universal Vercel Forwarder (`api/ai/proxy.js`) — [SELECTED]
-- *Description:* A tiny zero-dependency serverless route on Vercel acts as an HTTP relay. The browser sends the request to `/api/ai/proxy` with headers containing the target endpoint and API key. The serverless function executes the fetch and returns the response.
+- *Description:* A tiny zero-dependency serverless route on Vercel acts as an HTTP relay. The browser sends the request to `/api/ai/proxy` with headers containing the target endpoint and API key.
 - *Why Chosen:*
   - Completely eliminates CORS limitations for all providers.
   - Zero storage on Vercel: 100% ephemeral in-flight relay.
@@ -61,15 +61,15 @@ Users visiting the hosted Vercel site can input their own API key (e.g., from Op
 
 ---
 
-## 5. Technical Architecture & Implementation Plan
+## 5. Architectural & Technical Specifications (Resolved Post-Review)
 
-### 5.1 Provider Presets & Configuration
-Default presets offered in the UI:
+### 5.1 Provider Presets & Uniform OpenAI Format
+All supported providers leverage standard OpenAI chat completion schemas (`/v1/chat/completions`), eliminating payload translation overhead:
 1. **OpenRouter (Default / Recommended):**
    - Base URL: `https://openrouter.ai/api/v1`
    - Default Models: `meta-llama/llama-3.3-70b-instruct:free`, `google/gemini-2.0-flash-exp:free`, `mistralai/mistral-small-24b-instruct-2501:free`
-2. **Google Gemini:**
-   - Base URL: `https://generativelanguage.googleapis.com/v1beta`
+2. **Google Gemini (OpenAI Endpoint):**
+   - Base URL: `https://generativelanguage.googleapis.com/v1beta/openai`
    - Default Model: `gemini-1.5-flash`
 3. **Groq:**
    - Base URL: `https://api.groq.com/openai/v1`
@@ -77,41 +77,48 @@ Default presets offered in the UI:
 4. **OpenAI:**
    - Base URL: `https://api.openai.com/v1`
    - Default Model: `gpt-4o-mini`
-5. **Custom / Local (Ollama, vLLM, LMStudio):**
+5. **Custom / Local (Ollama, LMStudio, vLLM):**
    - Configurable Base URL & Model ID.
 
-### 5.2 Serverless Forwarder (`api/ai/proxy.js`)
+### 5.2 SSRF Protection & Dual-Path Network Dispatching
+- **Proxy Security (`api/ai/proxy.js`):** Enforces a domain allowlist:
+  - `openrouter.ai`
+  - `generativelanguage.googleapis.com`
+  - `api.groq.com`
+  - `api.openai.com`
+  Requests with unknown target hostnames outside the allowlist are rejected with HTTP 403 to prevent open proxy / SSRF abuse.
+- **Local Network Presets:** For local custom URLs (`localhost`, `127.0.0.1`), `src/services/ai/client.js` executes direct browser `fetch()` calls rather than routing through Vercel cloud serverless (which cannot reach local client hardware).
+
+### 5.3 Universal Proxy Specifications (`api/ai/proxy.js`)
 - Accepts `POST` requests.
 - Headers read:
-  - `x-target-url`: Full URL to the destination completion endpoint.
-  - `x-api-key`: User's API key.
-  - `x-provider`: Provider identifier (e.g. `openrouter`, `gemini`, `openai`, `groq`).
-- Body: Standard OpenAI-compatible chat payload `{ model, messages, temperature, max_tokens }` (translated for Gemini if necessary).
-- Returns the provider's completion response directly to client.
+  - `x-target-url`: Full URL to destination completion endpoint (must match domain allowlist).
+  - `Authorization`: Bearer token (API key).
+- Body: Standard JSON `{ model, messages, temperature, max_tokens }`.
+- Request forward timeout: 12 seconds (safely under Vercel Free Tier 15s limit).
+- Returns the provider's completion response JSON directly.
 
-### 5.3 Client AI Service (`src/services/ai/client.js`)
-- Reads active provider, key, and model from `storage.js`.
-- Dispatches requests to `/api/ai/proxy`.
-- Provides high-level methods:
-  - `completeChat({ messages, systemPrompt, temperature })`
-  - `optimizePrompt(rawPrompt, mode)`
-  - `executeFlowStep(flowId, stepIndex, input, previousOutputs)`
-  - `checkStatus()`
-- If no key is configured, cleanly falls back to deterministic local mock without throwing uncaught exceptions.
+### 5.4 Multi-Tiered Resolution Cascade
+`src/services/ai/client.js` executes in cascade order:
+1. **Tier 1 (Client BYOK):** If the user has saved an API key in `localStorage` (`pecut_byok_config`), use it via `/api/ai/proxy`.
+2. **Tier 2 (Server .env Fallback):** If no client key is set, and running against a self-hosted Node server that has `GEMINI_API_KEY`, use server endpoints (`/api/ai/optimize`, `/api/ai/flow/step`).
+3. **Tier 3 (Deterministic Mock):** If no keys exist anywhere, fall back cleanly to local structural optimization and mock flow generation.
 
-### 5.4 UI Changes
-- Topbar indicator updated: Displays active provider name (e.g. `[OpenRouter: llama-3.3-70b]`, `[Gemini]`, or `[Demo Mode]`).
-- Clicking the indicator or settings button opens the **AI Connection Modal**.
-- Fields:
-  - Provider Dropdown (OpenRouter, Gemini, Groq, OpenAI, Custom).
-  - API Key Input (masked password input with show/hide toggle).
-  - Model Selection (quick-select popular models + free models badge, or manual text input).
-  - Test Connection button with visual status response.
-  - Clear / Remove Key button.
+### 5.5 Connection Test & Verification
+- Connection testing issues a minimal 1-token request (`messages: [{ role: 'user', content: 'hi' }], max_tokens: 1`) to verify key authentication and model availability without wasting user quota.
+
+### 5.6 UI Integration
+- Topbar indicator shows active provider & model (e.g. `[OpenRouter: llama-3.3-70b]` or `[BYOK Config]`).
+- Settings modal provides:
+  - Provider selector dropdown with provider logos/badges.
+  - API Key input field with secure masked view and show/hide toggle.
+  - Model selection with quick-pick badges (including FREE tier badges) and custom manual input.
+  - "Test Connection" button with live status badge (green ping / red error).
+  - "Save to Browser" button and "Clear Key" button.
 
 ---
 
 ## 6. What's Left to the Builder
-- Detailed CSS styling conforming to existing dark/light theme variables in `style.css`.
+- Detailed CSS styling matching existing dark/light theme variables in `style.css`.
 - Exact test assertions in `tests/proxy.test.js` and `tests/aiClient.test.js`.
-- `vercel.json` deployment headers and route configuration.
+- Adding `api/ai/proxy.js` for Vercel Serverless Function and `vercel.json` deployment rules.
