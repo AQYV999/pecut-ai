@@ -34,6 +34,11 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           Overview
         </a>
+        <a href="#canvas" class="nav-item" data-nav="canvas">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Workspace Canvas
+          <span class="badge-pro" style="background: linear-gradient(135deg, #10b981, #059669);">New</span>
+        </a>
         <a href="#builder" class="nav-item" data-nav="builder">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           Prompt Builder
@@ -188,6 +193,15 @@
                     <p>Enhance clarity, structure and output control</p>
                   </div>
                 </button>
+                <button type="button" class="quick-action-item" data-nav-target="canvas">
+                  <div class="qa-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  </div>
+                  <div>
+                    <h4>Workspace Canvas &amp; Chat</h4>
+                    <p>Interactive dual-pane AI chat and live prompt document authoring</p>
+                  </div>
+                </button>
                 <button type="button" class="quick-action-item" data-nav-target="templates">
                   <div class="qa-icon">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
@@ -225,6 +239,87 @@
               </div>
               <div class="recent-history-list" id="recentHistoryList">
                 <div class="empty-state-sm">No recent activity yet. Run a prompt in Builder or Optimizer.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW: WORKSPACE CANVAS -->
+        <section class="view-section" id="view-canvas">
+          <div class="canvas-workspace-wrapper">
+            <!-- Mobile Segmented Toggle -->
+            <div class="canvas-mobile-toggle" id="canvasMobileToggle">
+              <button type="button" class="canvas-toggle-tab active" data-pane="chat">💬 Chat Assistant</button>
+              <button type="button" class="canvas-toggle-tab" data-pane="doc">📝 Document Canvas</button>
+            </div>
+
+            <!-- Main Dual-Pane Layout -->
+            <div class="canvas-layout">
+              <!-- Collapsible Sidebar: Project Switcher -->
+              <aside class="canvas-sidebar" id="canvasSidebar">
+                <div class="canvas-sidebar-header">
+                  <span style="font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Projects</span>
+                  <button type="button" class="btn btn-secondary btn-xs" id="canvasNewWsBtn" title="Create New Workspace">+ New</button>
+                </div>
+                <div class="canvas-ws-list" id="canvasWsList">
+                  <!-- Populated dynamically by JS -->
+                </div>
+                <div class="canvas-sidebar-footer">
+                  <button type="button" class="btn btn-ghost btn-xs" id="canvasExportAllBtn" title="Export Workspaces JSON" style="flex: 1;">⬇ Export</button>
+                  <button type="button" class="btn btn-ghost btn-xs" id="canvasImportAllBtn" title="Import Workspaces JSON" style="flex: 1;">⬆ Import</button>
+                  <input type="file" id="canvasImportFileInput" accept=".json" style="display: none;">
+                </div>
+              </aside>
+
+              <!-- Left Column: Interactive Chat Pane -->
+              <div class="canvas-chat-pane" id="canvasChatPane">
+                <div class="canvas-pane-header">
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <button type="button" class="btn btn-secondary btn-xs" id="canvasToggleSidebarBtn" title="Toggle Projects Sidebar">☰ Projects</button>
+                    <span class="canvas-pane-title">AI Chat Assistant</span>
+                  </div>
+                  <div class="canvas-profile-selector-wrap">
+                    <label for="canvasProfileSelect" style="font-size: 0.75rem; color: var(--text-secondary); margin: 0;">Persona:</label>
+                    <select id="canvasProfileSelect" class="canvas-profile-select">
+                      <option value="">Default Assistant</option>
+                      <!-- Dynamically populated from Context Profiles -->
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Chat Messages Stream -->
+                <div class="canvas-chat-stream" id="canvasChatStream">
+                  <!-- Messages populated by JS -->
+                </div>
+
+                <!-- Chat Input Box -->
+                <div class="canvas-chat-input-box">
+                  <textarea id="canvasChatInput" placeholder="Ketik pesan atau instruksi prompt ke AI... (Shift+Enter untuk baris baru)" rows="2"></textarea>
+                  <button type="button" class="btn btn-primary" id="canvasSendBtn" title="Kirim Pesan">
+                    <span>Kirim</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Right Column: Live Document / Canvas Editor -->
+              <div class="canvas-doc-pane" id="canvasDocPane">
+                <div class="canvas-pane-header">
+                  <input type="text" id="canvasTitleInput" class="canvas-title-input" placeholder="Judul Proyek / Dokumen..." value="Starter Prompt Project">
+                  <div class="canvas-doc-actions">
+                    <span id="canvasSaveStatus" class="canvas-save-status">Saved</span>
+                    <button type="button" class="btn btn-primary btn-xs" id="canvasSendToOptimizerBtn" title="Kirim Dokumen ke Prompt Optimizer">
+                      <span>⚡ Optimize</span>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-xs" id="canvasCopyDocBtn" title="Copy All Text">📋 Salin</button>
+                    <button type="button" class="btn btn-secondary btn-xs" id="canvasDownloadMdBtn" title="Download Markdown (.md)">⬇ MD</button>
+                  </div>
+                </div>
+
+                <!-- Document Editor Textarea -->
+                <div class="canvas-editor-container">
+                  <textarea id="canvasDocumentEditor" class="canvas-doc-textarea" placeholder="Tulis atau hasilkan draf prompt di sini..."></textarea>
+                </div>
               </div>
             </div>
           </div>
@@ -719,6 +814,10 @@
         <div class="cmd-item" data-action="nav" data-target="overview">
           <span>Go to Overview</span>
           <kbd>G O</kbd>
+        </div>
+        <div class="cmd-item" data-action="nav" data-target="canvas">
+          <span>Open Workspace Canvas</span>
+          <kbd>G C</kbd>
         </div>
         <div class="cmd-item" data-action="nav" data-target="builder">
           <span>Open Prompt Builder</span>
