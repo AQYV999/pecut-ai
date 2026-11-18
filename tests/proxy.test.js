@@ -22,6 +22,20 @@ test('isUrlAllowed only permits whitelisted AI provider domains', () => {
   assert.equal(isUrlAllowed('javascript:alert(1)'), false);
   assert.equal(isUrlAllowed(''), false);
   assert.equal(isUrlAllowed(null), false);
+
+  // Private networks & Cloud metadata SSRF defenses
+  assert.equal(isUrlAllowed('https://10.0.0.1/api'), false, 'Must block 10.0.0.0/8 private network');
+  assert.equal(isUrlAllowed('https://172.16.0.1/api'), false, 'Must block 172.16.0.0/12 private network');
+  assert.equal(isUrlAllowed('https://192.168.1.1/api'), false, 'Must block 192.168.0.0/16 private network');
+  assert.equal(isUrlAllowed('https://169.254.169.254/meta-data'), false, 'Must block 169.254.0.0/16 metadata');
+  assert.equal(isUrlAllowed('https://metadata.google.internal/computeMetadata/v1/'), false, 'Must block GCP metadata');
+  assert.equal(isUrlAllowed('https://0x7f000001/'), false, 'Must block hex loopback');
+  assert.equal(isUrlAllowed('http://127.0.0.1:11434/api'), false, 'Must block loopback by default in cloud');
+
+  // Environment-aware check: explicitly allowing local dev only when opted-in
+  assert.equal(isUrlAllowed('http://localhost:11434/v1/chat/completions', { allowLocal: true }), true);
+  assert.equal(isUrlAllowed('http://127.0.0.1:11434/v1/chat/completions', { allowLocal: true }), true);
+  assert.equal(isUrlAllowed('http://localhost:11434/v1/chat/completions', { allowLocal: false }), false);
 });
 
 test('handleProxyRequest rejects missing x-target-url with 400', async () => {
@@ -119,6 +133,44 @@ test('handleProxyRequest forwards GET requests cleanly', async () => {
     await handleProxyRequest(req, res);
     assert.equal(statusCode, 200);
     assert.ok(responseData.includes('qwen/qwen3.8-27b'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('handleProxyRequest rejects upstream redirects to internal metadata with 403', async () => {
+  const req = {
+    method: 'POST',
+    headers: {
+      'x-target-url': 'https://openrouter.ai/api/v1/chat/completions',
+      authorization: 'Bearer test'
+    },
+    on: (evt, cb) => { if (evt === 'end') cb(); }
+  };
+  let statusCode = 0;
+  let responseData = '';
+  const res = {
+    writeHead: (status) => { statusCode = status; },
+    end: (data) => { responseData = data; }
+  };
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    // Simulate upstream returning 302 redirecting to internal metadata IP
+    return {
+      status: 302,
+      headers: {
+        get: (h) => (h.toLowerCase() === 'location' ? 'http://169.254.169.254/latest/meta-data' : null)
+      },
+      text: async () => ''
+    };
+  };
+
+  try {
+    const { handleProxyRequest } = await import('../api/ai/proxy.js');
+    await handleProxyRequest(req, res);
+    assert.equal(statusCode, 403, 'Must reject redirect to metadata IP with 403');
+    assert.ok(responseData.includes('Forbidden: Upstream redirected to a disallowed or non-allowlisted destination.'));
   } finally {
     globalThis.fetch = originalFetch;
   }

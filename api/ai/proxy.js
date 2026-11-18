@@ -11,6 +11,7 @@ export const ALLOWED_DOMAINS = [
   'generativelanguage.googleapis.com',
   'api.groq.com',
   'api.openai.com',
+  '9router.com',
   'trycloudflare.com',
   'loca.lt',
   'ngrok-free.app',
@@ -22,17 +23,99 @@ export const ALLOWED_DOMAINS = [
 export const MAX_PROXY_BODY_BYTES = 2 * 1024 * 1024; // 2 MB limit to prevent buffer exhaustion DoS
 
 /**
- * Validates whether a target URL is in the domain allowlist (Anti-SSRF).
- * @param {string} urlString
+ * Checks whether an IP or hostname is private, loopback, or cloud metadata.
+ * @param {string} hostname
  * @returns {boolean}
  */
-export function isUrlAllowed(urlString) {
+export function isPrivateOrMetadataHost(hostname) {
+  if (!hostname || typeof hostname !== 'string') return true;
+  const host = hostname.toLowerCase().trim();
+
+  // 1. Loopback & Localhost names
+  if (host === 'localhost' || host === '0.0.0.0' || host === '::1' || host === '[::1]' || host.endsWith('.localhost')) {
+    return true;
+  }
+
+  // 2. Cloud Metadata hosts (AWS, GCP, Azure, OpenStack)
+  if (host === 'metadata.google.internal' || host === '169.254.169.254' || host === 'metadata') {
+    return true;
+  }
+
+  // 3. IPv4 pattern matching
+  const ipv4Match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4Match) {
+    const o1 = parseInt(ipv4Match[1], 10);
+    const o2 = parseInt(ipv4Match[2], 10);
+    const o3 = parseInt(ipv4Match[3], 10);
+    const o4 = parseInt(ipv4Match[4], 10);
+    if (o1 > 255 || o2 > 255 || o3 > 255 || o4 > 255) return true;
+
+    // 127.0.0.0/8 (Loopback)
+    if (o1 === 127) return true;
+    // 0.0.0.0/8 (Broadcast/This network)
+    if (o1 === 0) return true;
+    // 10.0.0.0/8 (Private RFC 1918)
+    if (o1 === 10) return true;
+    // 172.16.0.0/12 (Private RFC 1918)
+    if (o1 === 172 && o2 >= 16 && o2 <= 31) return true;
+    // 192.168.0.0/16 (Private RFC 1918)
+    if (o1 === 192 && o2 === 168) return true;
+    // 169.254.0.0/16 (Link-local / Cloud metadata RFC 3927)
+    if (o1 === 169 && o2 === 254) return true;
+    // 100.64.0.0/10 (Carrier-grade NAT RFC 6598)
+    if (o1 === 100 && o2 >= 64 && o2 <= 127) return true;
+  }
+
+  // Hex / Dword IP representations (e.g. 0x7f000001, 2130706433)
+  if (/^0x[0-9a-f]+$/i.test(host) || /^\d{8,10}$/.test(host)) {
+    return true;
+  }
+
+  // 4. IPv6 Link-Local and ULA
+  if (host.startsWith('fe8') || host.startsWith('fe9') || host.startsWith('fea') || host.startsWith('feb') ||
+      host.startsWith('fc') || host.startsWith('fd') || host === '::' || host === '::1') {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Validates whether a target URL is in the domain allowlist (Anti-SSRF).
+ * @param {string} urlString
+ * @param {Object} [options]
+ * @param {boolean} [options.allowLocal] - Explicit flag to allow local development destinations
+ * @returns {boolean}
+ */
+export function isUrlAllowed(urlString, options = {}) {
   if (!urlString || typeof urlString !== 'string') return false;
   try {
     const parsed = new URL(urlString);
+
+    // Environment-aware check:
+    // Localhost allowed ONLY when explicitly configured via environment or options
+    const isLocalDevExplicitlyAllowed = (typeof options.allowLocal === 'boolean')
+      ? options.allowLocal
+      : (process.env.ALLOW_LOCAL_PROXY === 'true');
+
+    const host = parsed.hostname.toLowerCase();
+    const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+
+    if (isLocalHost) {
+      if (isLocalDevExplicitlyAllowed) {
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      }
+      return false; // Blocked in cloud / default deployments
+    }
+
+    // In cloud / production, MUST use https
     if (parsed.protocol !== 'https:') return false;
-    const hostname = parsed.hostname.toLowerCase();
-    return ALLOWED_DOMAINS.some(allowed => hostname === allowed || hostname.endsWith('.' + allowed));
+
+    // Block private networks, loopbacks, and cloud metadata destinations
+    if (isPrivateOrMetadataHost(host)) return false;
+
+    // Check allowlisted domains
+    return ALLOWED_DOMAINS.some(allowed => host === allowed || host.endsWith('.' + allowed));
   } catch (_) {
     return false;
   }
@@ -133,13 +216,30 @@ export async function handleProxyRequest(req, res) {
     const fetchOptions = {
       method: req.method,
       headers: upstreamHeaders,
-      signal: AbortSignal.timeout(55000)
+      signal: AbortSignal.timeout(55000),
+      redirect: 'manual'
     };
     if (req.method === 'POST' && bodyBuffer) {
       fetchOptions.body = bodyBuffer;
     }
 
-    const upstreamRes = await fetch(targetUrl, fetchOptions);
+    let upstreamRes = await fetch(targetUrl, fetchOptions);
+
+    // Prevent redirect-based SSRF bypass: validate redirect target against isUrlAllowed
+    if (upstreamRes.status >= 300 && upstreamRes.status < 400) {
+      const redirectLocation = upstreamRes.headers.get('location');
+      if (redirectLocation) {
+        const resolvedRedirect = new URL(redirectLocation, targetUrl).toString();
+        if (isUrlAllowed(resolvedRedirect)) {
+          upstreamRes = await fetch(resolvedRedirect, fetchOptions);
+        } else {
+          res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          return res.end(JSON.stringify({
+            error: 'Forbidden: Upstream redirected to a disallowed or non-allowlisted destination.'
+          }));
+        }
+      }
+    }
 
     const responseText = await upstreamRes.text();
     const contentType = upstreamRes.headers.get('content-type') || 'application/json';
