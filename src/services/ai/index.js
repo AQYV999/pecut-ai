@@ -3,38 +3,30 @@
  * Apache-2.0 License
  */
 
+import { PROVIDER_PRESETS } from '../../data/models.js';
+
 export {
   completeChat,
   testAIConnection,
+  fetchProviderModels,
   optimizePromptWithAI,
   executeFlowStep,
   getActiveProviderInfo,
   isLocalOrigin,
+  parseRobustJson,
   buildChatPayload
 } from './client.js';
 
-export const SUPPORTED_PROVIDERS = {
-  openrouter: {
-    id: 'openrouter',
-    name: 'OpenRouter',
-    defaultModel: 'meta-llama/llama-3.3-70b-instruct:free'
-  },
-  gemini: {
-    id: 'gemini',
-    name: 'Google Gemini',
-    defaultModel: 'gemini-1.5-flash'
-  },
-  groq: {
-    id: 'groq',
-    name: 'Groq Cloud',
-    defaultModel: 'llama-3.3-70b-versatile'
-  },
-  openai: {
-    id: 'openai',
-    name: 'OpenAI',
-    defaultModel: 'gpt-4o-mini'
-  }
-};
+export const SUPPORTED_PROVIDERS = Object.fromEntries(
+  Object.entries(PROVIDER_PRESETS).map(([key, preset]) => [
+    key,
+    {
+      id: preset.id,
+      name: preset.name,
+      defaultModel: preset.defaultModel
+    }
+  ])
+);
 
 /**
  * Checks server-side AI provider configuration status.
@@ -49,7 +41,7 @@ export async function checkAIStatus() {
     return {
       status: 'demo',
       provider: 'openrouter',
-      model: 'meta-llama/llama-3.3-70b-instruct:free',
+      model: PROVIDER_PRESETS.openrouter.defaultModel,
       hasKey: false,
       engine: 'BYOK Ready'
     };
