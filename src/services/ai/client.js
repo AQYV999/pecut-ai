@@ -83,7 +83,7 @@ export async function parseRobustJson(res) {
  * @param {number} [options.maxTokens=2048]
  * @returns {Object}
  */
-export function buildChatPayload({ model, messages = [], systemPrompt, temperature = 0.3, maxTokens = 2048 }) {
+export function buildChatPayload({ model, messages = [], systemPrompt, temperature = 0.3, maxTokens = 8192 }) {
   const formattedMessages = [];
   if (systemPrompt && systemPrompt.trim()) {
     formattedMessages.push({ role: 'system', content: systemPrompt.trim() });
@@ -208,6 +208,12 @@ export async function completeChat(options = {}) {
           || errObj?.error 
           || (typeof errObj === 'string' ? errObj : `HTTP ${res.status}: ${res.statusText}`);
 
+        // If provider rejects high max_tokens (HTTP 400), step down gracefully and retry
+        if (res.status === 400 && msg.toLowerCase().includes('max_tokens') && payload.max_tokens > 4096 && attempt < maxRetries) {
+          payload.max_tokens = 4096;
+          continue;
+        }
+
         // If Google or another provider returns 503 or "high demand", auto-retry after backoff
         const isHighDemand = res.status === 503 || msg.toLowerCase().includes('high demand') || msg.toLowerCase().includes('temporarily unavailable');
         if (isHighDemand && attempt < maxRetries) {
@@ -221,15 +227,42 @@ export async function completeChat(options = {}) {
       const data = await parseRobustJson(res);
       const choice = data.choices?.[0];
       const message = choice?.message;
+      const finishReason = choice?.finish_reason || choice?.native_finish_reason || '';
 
       let content = message?.content;
       if (Array.isArray(content)) {
         content = content.map(part => part?.text || part?.content || (typeof part === 'string' ? part : '')).join('');
       }
 
+      let reasoning = (message?.reasoning || message?.reasoning_content || '').trim();
+
+      // Extract inline <think>...</think> blocks (or unclosed <think>... when truncated)
+      if (typeof content === 'string' && content.includes('<think>')) {
+        const thinkBlocks = [];
+        let cleaned = content.replace(/<think>([\s\S]*?)<\/think>/gi, (_, inner) => {
+          if (inner && inner.trim()) thinkBlocks.push(inner.trim());
+          return '';
+        });
+        // Handle unclosed <think> if model hit token limit mid-thought
+        const unclosedIdx = cleaned.search(/<think>/i);
+        if (unclosedIdx !== -1) {
+          const tail = cleaned.slice(unclosedIdx).replace(/^<think>/i, '').trim();
+          if (tail) thinkBlocks.push(tail);
+          cleaned = cleaned.slice(0, unclosedIdx);
+        }
+        if (thinkBlocks.length > 0) {
+          reasoning = [reasoning, ...thinkBlocks].filter(Boolean).join('\n\n');
+        }
+        content = cleaned.trim();
+      }
+
+      const hasDirectContent = typeof content === 'string' && content.trim().length > 0;
+      let isReasoningOnly = false;
+
       // Fallback to reasoning / thinking tokens if content is empty or null (e.g. DeepSeek-R1 / Nemotron / VibeCoding)
-      if (!content && (message?.reasoning || message?.reasoning_content)) {
-        content = message.reasoning || message.reasoning_content;
+      if (!hasDirectContent && reasoning) {
+        content = reasoning;
+        isReasoningOnly = true;
       }
 
       // Fallback to legacy completion text
@@ -243,9 +276,13 @@ export async function completeChat(options = {}) {
 
       return {
         text: content,
+        reasoning,
         raw: data,
         provider,
-        model
+        model,
+        finishReason,
+        truncated: finishReason === 'length',
+        isReasoningOnly
       };
     } catch (err) {
       if (err.message && (err.message === 'Failed to fetch' || err.name === 'TypeError')) {

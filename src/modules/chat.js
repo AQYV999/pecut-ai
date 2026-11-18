@@ -195,6 +195,57 @@ export function deleteChatSession(id) {
 }
 
 /**
+ * Clears all messages inside the currently active chat session.
+ * @returns {Object|null}
+ */
+export function clearActiveChatSession() {
+  const session = getActiveChatSession();
+  if (!session) return null;
+  return saveChatSession({
+    id: session.id,
+    title: 'New Conversation',
+    messages: []
+  });
+}
+
+/**
+ * Builds a clean, token-bounded history payload for the AI API.
+ * Excludes welcome banners, error messages, and prevents huge leftover contexts from blowing token limits.
+ * @param {Array<Object>} messages
+ * @param {number} [maxMessages=10]
+ * @param {number} [maxChars=16000]
+ * @returns {Array<{ role: string, content: string }>}
+ */
+export function buildCleanHistoryPayload(messages = [], maxMessages = 10, maxChars = 16000) {
+  if (!Array.isArray(messages)) return [];
+
+  const valid = messages.filter(m => {
+    if (!m || !m.role || !m.content) return false;
+    if (m.isError) return false;
+    if (typeof m.id === 'string' && (m.id === 'msg_welcome' || m.id.startsWith('msg_err_'))) return false;
+    if (m.role === 'assistant' && m.content.startsWith('⚠️ **Gagal mendapatkan respon dari AI:**')) return false;
+    return m.role === 'user' || m.role === 'assistant';
+  });
+
+  const recent = valid.slice(-maxMessages);
+  const bounded = [];
+  let charTotal = 0;
+
+  // Walk from newest to oldest so the latest user message is always preserved
+  for (let i = recent.length - 1; i >= 0; i--) {
+    const item = recent[i];
+    const text = String(item.content);
+    if (bounded.length > 0 && charTotal + text.length > maxChars) {
+      break;
+    }
+    charTotal += text.length;
+    bounded.unshift({ role: item.role, content: text });
+  }
+
+  return bounded;
+}
+
+/**
  * Checks if a text contains runnable HTML code and extracts it.
  * @param {string} text
  * @returns {string|null}
@@ -228,7 +279,15 @@ export function extractHtmlCode(text) {
  */
 export function formatMarkdown(text) {
   if (!text) return '';
-  const escaped = escapeHtml(text);
+
+  // Auto-close unclosed fenced code block if response was truncated mid-code
+  let normalized = String(text);
+  const fenceMatches = normalized.match(/```/g);
+  if (fenceMatches && fenceMatches.length % 2 === 1) {
+    normalized += '\n```';
+  }
+
+  const escaped = escapeHtml(normalized);
 
   // Fenced code blocks with language badge, copy button, and HTML preview if applicable
   const withCode = escaped.replace(/```([a-z0-9_-]*)\n([\s\S]*?)```/gi, (_, lang, code) => {
@@ -396,15 +455,50 @@ export function renderActiveChatSession() {
     return;
   }
 
-  stream.innerHTML = messages.map(msg => {
+  stream.innerHTML = messages.map((msg, idx) => {
     const isUser = msg.role === 'user';
-    const isAssistant = msg.role === 'assistant';
+    const isLast = idx === messages.length - 1;
+
+    let thinkingHtml = '';
+    if (!isUser && msg.reasoning && msg.reasoning.trim()) {
+      const words = msg.reasoning.trim().split(/\s+/).length;
+      thinkingHtml = `
+        <details class="thinking-box">
+          <summary>💭 Thinking (${words} kata)</summary>
+          <div class="thinking-box-body">${escapeHtml(msg.reasoning.trim()).replace(/\n/g, '<br>')}</div>
+        </details>
+      `;
+    }
+
+    let bodyHtml = '';
+    if (!isUser && msg.isReasoningOnly) {
+      bodyHtml = `
+        <div class="chat-truncated-note">
+          <span>⚠️ Model menghabiskan batas token di proses berpikir sebelum menulis hasil akhir.</span>
+        </div>
+      `;
+    } else {
+      bodyHtml = `<div class="chat-bubble-content">${formatMarkdown(msg.content)}</div>`;
+    }
+
+    let continueHtml = '';
+    if (!isUser && isLast && (msg.truncated || msg.isReasoningOnly)) {
+      const btnLabel = msg.isReasoningOnly ? '⏩ Lanjutkan ke Hasil Akhir' : '⏩ Lanjutkan Jawaban (Terpotong)';
+      continueHtml = `
+        <div class="chat-continue-bar">
+          <span class="chat-truncated-badge">Teks terpotong batas token</span>
+          <button type="button" class="btn btn-primary btn-xs btn-continue-generation" data-reasoning-only="${msg.isReasoningOnly ? '1' : '0'}">${btnLabel}</button>
+        </div>
+      `;
+    }
 
     return `
       <div class="chat-message-row ${isUser ? 'user-row' : 'assistant-row'}">
         <div class="chat-avatar">${isUser ? '👤' : '⚡'}</div>
         <div class="chat-bubble ${isUser ? 'user-bubble' : 'assistant-bubble'}">
-          <div class="chat-bubble-content">${formatMarkdown(msg.content)}</div>
+          ${thinkingHtml}
+          ${bodyHtml}
+          ${continueHtml}
         </div>
       </div>
     `;
@@ -431,25 +525,36 @@ export function renderActiveChatSession() {
     });
   });
 
+  // Wire Continue Generation buttons
+  stream.querySelectorAll('.btn-continue-generation').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const wasReasoningOnly = btn.getAttribute('data-reasoning-only') === '1';
+      const prompt = wasReasoningOnly
+        ? 'Langsung tuliskan hasil akhir / kode lengkapnya sekarang tanpa panjang lebar berpikir.'
+        : 'Lanjutkan persis dari karakter terakhir yang terpotong sebelumnya tanpa mengulang dari awal.';
+      sendGeneralChatMessage(prompt);
+    });
+  });
+
   stream.scrollTop = stream.scrollHeight;
 }
 
 /**
  * Sends a chat message to the active BYOK provider.
+ * @param {string|null} [overrideText=null]
  */
-export async function sendGeneralChatMessage() {
+export async function sendGeneralChatMessage(overrideText = null) {
   if (isGenerating) return;
 
   const input = document.getElementById('chatThreadInput');
-  if (!input) return;
-  const userText = input.value.trim();
+  const userText = (typeof overrideText === 'string' ? overrideText : (input?.value || '')).trim();
   if (!userText) return;
 
   const session = getActiveChatSession();
   const providerInfo = getActiveProviderInfo();
 
   // Guard: Zero-key state
-  if (!providerInfo.hasKey && providerInfo.provider !== 'custom') {
+  if (!providerInfo.hasKey && providerInfo.provider !== 'custom' && providerInfo.provider !== 'ninerouter') {
     const stream = document.getElementById('chatThreadStream');
     if (stream) {
       const banner = document.createElement('div');
@@ -458,7 +563,7 @@ export async function sendGeneralChatMessage() {
         <div class="chat-avatar">⚡</div>
         <div class="chat-bubble assistant-bubble" style="border-color: #f59e0b; background: rgba(245, 158, 11, 0.08);">
           <strong style="color: #f59e0b;">Kunci API Belum Dikonfigurasi</strong>
-          <p style="margin: 0.35rem 0 0.75rem; font-size: 0.85rem; color: var(--text-secondary);">Masukkan API Key gratis Anda (Groq / Gemini) untuk mulai chatting secara penuh.</p>
+          <p style="margin: 0.35rem 0 0.75rem; font-size: 0.85rem; color: var(--text-secondary);">Masukkan API Key gratis Anda (Groq / Gemini / OpenRouter / 9Router) untuk mulai chatting secara penuh.</p>
           <button type="button" class="btn btn-primary btn-xs" id="chatOpenByokModalBtn">⚡ Atur API Key Sekarang</button>
         </div>
       `;
@@ -470,7 +575,9 @@ export async function sendGeneralChatMessage() {
   }
 
   // Clear input
-  input.value = '';
+  if (input && typeof overrideText !== 'string') {
+    input.value = '';
+  }
 
   const now = new Date().toISOString();
   const userMsg = {
@@ -495,14 +602,15 @@ export async function sendGeneralChatMessage() {
   }
 
   // Typing indicator
+  const shortModelName = (providerInfo.model || '').split('/').pop().replace(':free', '');
   const stream = document.getElementById('chatThreadStream');
   const typingEl = document.createElement('div');
   typingEl.className = 'chat-message-row assistant-row typing-indicator';
   typingEl.id = 'chatThreadTyping';
   typingEl.innerHTML = `
     <div class="chat-avatar">⚡</div>
-    <div class="chat-bubble assistant-bubble" style="opacity: 0.7;">
-      <em>Pecut AI (${escapeHtml(providerInfo.name)}) sedang merespon...</em>
+    <div class="chat-bubble assistant-bubble" style="opacity: 0.75;">
+      <em>Pecut AI (${escapeHtml(providerInfo.name)} • ${escapeHtml(shortModelName)}) sedang merespon...</em>
     </div>
   `;
   if (stream) {
@@ -518,16 +626,14 @@ export async function sendGeneralChatMessage() {
     const currentMode = CHAT_MODES[session.mode] || CHAT_MODES.coder;
     const systemPrompt = currentMode.systemPrompt;
 
-    // Send bounded history (last 12 turns)
-    const historyPayload = updatedMessages.slice(-12).map(m => ({
-      role: m.role,
-      content: m.content
-    }));
+    // Send clean, token-bounded history (excludes errors, welcome banners, and runaway contexts)
+    const historyPayload = buildCleanHistoryPayload(updatedMessages, 10, 16000);
 
     const response = await completeChat({
       systemPrompt,
       messages: historyPayload,
-      temperature: 0.4
+      temperature: 0.4,
+      maxTokens: 8192
     });
 
     document.getElementById('chatThreadTyping')?.remove();
@@ -535,7 +641,11 @@ export async function sendGeneralChatMessage() {
     const assistantMsg = {
       id: 'msg_' + Date.now(),
       role: 'assistant',
-      content: response.text,
+      content: response.isReasoningOnly ? '' : response.text,
+      reasoning: response.reasoning || '',
+      truncated: Boolean(response.truncated),
+      isReasoningOnly: Boolean(response.isReasoningOnly),
+      model: response.model,
       timestamp: new Date().toISOString()
     };
 
@@ -551,6 +661,7 @@ export async function sendGeneralChatMessage() {
     const errorMsg = {
       id: 'msg_err_' + Date.now(),
       role: 'assistant',
+      isError: true,
       content: `⚠️ **Gagal mendapatkan respon dari AI:** ${err.message}\n\nSilakan periksa koneksi atau coba model lain di pengaturan AI.`,
       timestamp: new Date().toISOString()
     };
@@ -578,16 +689,58 @@ export function initAIChat() {
   renderChatSidebar();
   renderActiveChatSession();
 
-  // "+ New Chat" button
+  const startNewChat = () => {
+    const modeSelect = document.getElementById('chatModeSelect');
+    const currentMode = modeSelect ? modeSelect.value : 'coder';
+    createChatSession('New Conversation', currentMode);
+    renderChatSidebar();
+    renderActiveChatSession();
+    document.getElementById('chatThreadInput')?.focus();
+  };
+
+  // "+ New Chat" buttons (sidebar & header)
   const newChatBtn = document.getElementById('chatNewSessionBtn');
-  if (newChatBtn) {
-    newChatBtn.addEventListener('click', () => {
-      const modeSelect = document.getElementById('chatModeSelect');
-      const currentMode = modeSelect ? modeSelect.value : 'coder';
-      createChatSession('New Conversation', currentMode);
-      renderChatSidebar();
-      renderActiveChatSession();
-      document.getElementById('chatThreadInput')?.focus();
+  if (newChatBtn) newChatBtn.addEventListener('click', startNewChat);
+
+  const headerNewBtn = document.getElementById('chatHeaderNewBtn');
+  if (headerNewBtn) headerNewBtn.addEventListener('click', startNewChat);
+
+  // "Clear Chat" button in header
+  const clearSessionBtn = document.getElementById('chatClearSessionBtn');
+  if (clearSessionBtn) {
+    clearSessionBtn.addEventListener('click', () => {
+      const session = getActiveChatSession();
+      if (!session || !session.messages || session.messages.length === 0) {
+        showToast('Chat sudah bersih.');
+        return;
+      }
+      if (confirm('Bersihkan semua sisa pesan di percakapan ini?')) {
+        clearActiveChatSession();
+        renderChatSidebar();
+        renderActiveChatSession();
+        showToast('Riwayat percakapan ini telah dibersihkan.');
+        document.getElementById('chatThreadInput')?.focus();
+      }
+    });
+  }
+
+  // Auto-start fresh chat when user switches AI provider or model
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pecut:ai-config-changed', (e) => {
+      const { nextConfig, modelChanged, startFreshChat } = e.detail || {};
+      if (!modelChanged || !startFreshChat) return;
+
+      const session = getActiveChatSession();
+      const hasUserMessages = session?.messages?.some(m => m.role === 'user');
+      if (hasUserMessages) {
+        createChatSession('New Conversation', session.mode || 'coder');
+        renderChatSidebar();
+        renderActiveChatSession();
+        const shortModel = (nextConfig?.model || '').split('/').pop().replace(':free', '');
+        showToast(`Model diganti ke ${shortModel || nextConfig?.provider} — chat baru dimulai (chat lama tersimpan di ☰ Chats).`, 4000);
+      } else {
+        showToast('Pengaturan AI & model berhasil disimpan!');
+      }
     });
   }
 
@@ -623,7 +776,7 @@ export function initAIChat() {
   const input = document.getElementById('chatThreadInput');
 
   if (sendBtn) {
-    sendBtn.addEventListener('click', sendGeneralChatMessage);
+    sendBtn.addEventListener('click', () => sendGeneralChatMessage());
   }
 
   if (input) {

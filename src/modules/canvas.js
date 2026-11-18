@@ -163,11 +163,21 @@ export function renderChatStream() {
   }
 
   container.innerHTML = messages.map(msg => {
-    const isUser = msg.role === 'user';
     const isAssistant = msg.role === 'assistant';
+    let thinkingHtml = '';
+    if (isAssistant && msg.reasoning && msg.reasoning.trim()) {
+      const words = msg.reasoning.trim().split(/\s+/).length;
+      thinkingHtml = `
+        <details class="thinking-box">
+          <summary>💭 Thinking (${words} kata)</summary>
+          <div class="thinking-box-body">${escapeHtml(msg.reasoning.trim()).replace(/\n/g, '<br>')}</div>
+        </details>
+      `;
+    }
 
     return `
       <div class="canvas-chat-msg ${escapeHtml(msg.role)}" data-msg-id="${escapeHtml(msg.id || '')}">
+        ${thinkingHtml}
         <div class="canvas-msg-body">${formatChatMessage(msg.content)}</div>
         ${isAssistant ? `
           <div class="canvas-msg-actions">
@@ -283,7 +293,7 @@ export async function sendChatMessage() {
   const providerInfo = getActiveProviderInfo();
 
   // Guard: Zero-key state
-  if (!providerInfo.hasKey && providerInfo.provider !== 'custom') {
+  if (!providerInfo.hasKey && providerInfo.provider !== 'custom' && providerInfo.provider !== 'ninerouter') {
     const stream = document.getElementById('canvasChatStream');
     if (stream) {
       const banner = document.createElement('div');
@@ -359,16 +369,20 @@ Directly fulfill the user's request:
       systemPrompt += `\n\nCurrent Canvas Document Draft:\n"""\n${docContext.slice(0, 3000)}\n"""`;
     }
 
-    // Bounded history (latest 10 messages)
-    const historyPayload = updatedMessages.slice(-10).map(m => ({
-      role: m.role,
-      content: m.content
-    }));
+    // Bounded clean history (latest 10 messages, excluding errors)
+    const historyPayload = updatedMessages
+      .filter(m => !m.isError && !(m.id || '').startsWith('msg_err_'))
+      .slice(-10)
+      .map(m => ({
+        role: m.role,
+        content: m.content
+      }));
 
     const response = await completeChat({
       systemPrompt,
       messages: historyPayload,
-      temperature: 0.3
+      temperature: 0.3,
+      maxTokens: 8192
     });
 
     // Remove typing indicator
@@ -377,7 +391,8 @@ Directly fulfill the user's request:
     const assistantMsg = {
       id: 'msg_' + Date.now(),
       role: 'assistant',
-      content: response.text,
+      content: response.isReasoningOnly ? '' : response.text,
+      reasoning: response.reasoning || '',
       timestamp: new Date().toISOString()
     };
 

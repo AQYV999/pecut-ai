@@ -226,6 +226,44 @@ test('completeChat falls back to reasoning content when content is null or array
       }
     });
     assert.equal(res.text, 'Calculated pong response');
+    assert.equal(res.isReasoningOnly, true);
+    assert.equal(res.reasoning, 'Calculated pong response');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('completeChat extracts inline <think> blocks into reasoning and flags finish_reason length', async () => {
+  const { completeChat } = await import('../src/services/ai/client.js');
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({
+      choices: [{
+        finish_reason: 'length',
+        message: {
+          role: 'assistant',
+          content: '<think>Planning HTML grid layout</think>\n<h1>Hello</h1>'
+        }
+      }]
+    })
+  });
+
+  try {
+    const res = await completeChat({
+      messages: [{ role: 'user', content: 'Build page' }],
+      overrideConfig: {
+        provider: 'ninerouter',
+        baseUrl: 'http://localhost:20128/v1',
+        model: 'VibeCoding'
+      }
+    });
+    assert.equal(res.reasoning, 'Planning HTML grid layout');
+    assert.equal(res.text, '<h1>Hello</h1>');
+    assert.equal(res.truncated, true);
+    assert.equal(res.isReasoningOnly, false);
   } finally {
     globalThis.fetch = originalFetch;
   }

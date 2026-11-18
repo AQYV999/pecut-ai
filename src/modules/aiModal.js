@@ -278,15 +278,33 @@ export function initAIModal() {
   const saveBtn = document.getElementById('byokSaveBtn');
   if (saveBtn) {
     saveBtn.addEventListener('click', () => {
+      const prevConfig = loadBYOKConfig();
       const provider = document.getElementById('byokProviderSelect')?.value || 'openrouter';
       const baseUrl = (document.getElementById('byokBaseUrlInput')?.value || '').trim();
       const apiKey = (document.getElementById('byokApiKeyInput')?.value || '').trim();
       const model = (document.getElementById('byokModelInput')?.value || '').trim();
+      const startFreshChat = document.getElementById('byokStartFreshChatCheckbox')?.checked !== false;
+
+      const modelChanged = prevConfig.provider !== provider || prevConfig.model !== model;
 
       saveBYOKConfig({ provider, baseUrl, apiKey, model });
       updateTopbarAIStatus();
       closeAIModal();
-      showToast('AI Provider & BYOK settings saved to browser!');
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('pecut:ai-config-changed', {
+          detail: {
+            prevConfig,
+            nextConfig: { provider, baseUrl, apiKey, model },
+            modelChanged,
+            startFreshChat
+          }
+        }));
+      }
+
+      if (!modelChanged || !startFreshChat) {
+        showToast('AI Provider & BYOK settings saved to browser!');
+      }
     });
   }
 

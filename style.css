@@ -1982,6 +1982,9 @@ body {
   gap: 1rem;
   min-height: calc(100vh - 160px);
   max-height: calc(100vh - 160px);
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .chat-sessions-sidebar {
@@ -2075,6 +2078,8 @@ body {
 
 .chat-main-area {
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   background: var(--surface-color);
@@ -2084,23 +2089,25 @@ body {
 }
 
 .chat-main-header {
-  padding: 0.75rem 1.25rem;
+  padding: 0.7rem 1rem;
   border-bottom: 1px solid var(--surface-border);
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
+  gap: 0.65rem;
   background: var(--surface-color);
 }
 
 .chat-title-input {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
   border: none;
   background: transparent;
   color: var(--text-primary);
   outline: none;
   flex: 1;
+  min-width: 100px;
 }
 
 .chat-title-input:focus {
@@ -2109,27 +2116,31 @@ body {
 
 .chat-header-mode-wrap {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
 }
 
 .chat-mode-select {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  padding: 0.3rem 0.6rem;
+  padding: 0.28rem 0.55rem;
   border-radius: var(--radius-sm);
   background: var(--bg-color);
   border: 1px solid var(--surface-border);
   color: var(--text-primary);
+  max-width: 220px;
 }
 
 .chat-thread-stream {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
-  padding: 1.5rem;
+  overflow-x: hidden;
+  padding: 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.15rem;
 }
 
 .chat-message-row {
@@ -2137,6 +2148,7 @@ body {
   gap: 0.85rem;
   align-items: flex-start;
   width: 100%;
+  min-width: 0;
   animation: fadeIn 0.2s ease-in;
 }
 
@@ -2162,10 +2174,24 @@ body {
 
 .chat-bubble {
   max-width: 82%;
+  min-width: 0;
   border-radius: 14px;
   padding: 0.9rem 1.2rem;
   line-height: 1.6;
   font-size: 0.92rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.chat-bubble-content {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.chat-bubble-content code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .user-bubble {
@@ -2179,6 +2205,80 @@ body {
   border: 1px solid var(--surface-border);
   color: var(--text-primary);
   border-bottom-left-radius: 2px;
+}
+
+/* Compact Collapsible Thinking / Reasoning Box */
+.thinking-box {
+  margin-bottom: 0.6rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.06);
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.thinking-box summary {
+  cursor: pointer;
+  padding: 0.35rem 0.65rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.thinking-box summary::-webkit-details-marker {
+  display: none;
+}
+
+.thinking-box summary::after {
+  content: '▸';
+  margin-left: auto;
+  font-size: 0.72rem;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.thinking-box[open] summary::after {
+  transform: rotate(90deg);
+}
+
+.thinking-box-body {
+  padding: 0.5rem 0.7rem;
+  border-top: 1px solid var(--surface-border);
+  max-height: 180px;
+  overflow-y: auto;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-tertiary, var(--text-secondary));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-truncated-note {
+  font-size: 0.82rem;
+  color: #f59e0b;
+  padding: 0.35rem 0;
+}
+
+.chat-continue-bar {
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--surface-border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.chat-truncated-badge {
+  font-size: 0.74rem;
+  color: #f59e0b;
+  font-weight: 500;
 }
 
 .chat-thread-input-bar {
@@ -2215,6 +2315,7 @@ body {
   overflow: hidden;
   border: 1px solid var(--surface-border);
   background: #0d1117;
+  max-width: 100%;
 }
 
 .code-block-header {

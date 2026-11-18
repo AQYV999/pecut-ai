@@ -267,12 +267,14 @@
             <div class="chat-main-area">
               <!-- Chat Header -->
               <div class="chat-main-header">
-                <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0;">
                   <button type="button" class="btn btn-secondary btn-xs" id="chatToggleSidebarBtn" title="Toggle Sessions Sidebar">☰ Chats</button>
                   <input type="text" id="chatSessionTitleInput" class="chat-title-input" placeholder="Conversation Title..." value="New Conversation">
                 </div>
                 <div class="chat-header-mode-wrap">
-                  <label for="chatModeSelect" style="font-size: 0.78rem; color: var(--text-secondary); margin: 0;">AI Persona:</label>
+                  <button type="button" class="btn btn-secondary btn-xs" id="chatHeaderNewBtn" title="Mulai Percakapan Baru">➕ Baru</button>
+                  <button type="button" class="btn btn-secondary btn-xs" id="chatClearSessionBtn" title="Bersihkan Isi Chat Ini" style="color: #ef4444;">🗑️ Bersihkan</button>
+                  <label for="chatModeSelect" style="font-size: 0.78rem; color: var(--text-secondary); margin: 0;">Persona:</label>
                   <select id="chatModeSelect" class="chat-mode-select">
                     <option value="coder">💻 OpenCoder &amp; Software Engineer</option>
                     <option value="webdev">🌐 Web Designer &amp; HTML/CSS Specialist</option>
@@ -1048,6 +1050,11 @@
           </button>
           <div id="byokTestStatus" class="test-status-text"></div>
         </div>
+
+        <label style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; font-size: 0.82rem; color: var(--text-secondary); cursor: pointer; user-select: none;">
+          <input type="checkbox" id="byokStartFreshChatCheckbox" checked style="width: auto; margin: 0; accent-color: var(--accent-primary);">
+          <span>Otomatis mulai chat baru yang bersih saat mengganti model/provider (chat lama tetap aman di ☰ Chats)</span>
+        </label>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: space-between;">
         <button type="button" class="btn btn-secondary" id="byokClearBtn" style="color: #ef4444; border-color: #ef4444;">Clear Key</button>

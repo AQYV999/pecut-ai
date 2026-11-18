@@ -106,7 +106,7 @@ export async function handleProxyRequest(req, res) {
     const fetchOptions = {
       method: req.method,
       headers: upstreamHeaders,
-      signal: AbortSignal.timeout(12000)
+      signal: AbortSignal.timeout(55000)
     };
     if (req.method === 'POST' && bodyBuffer) {
       fetchOptions.body = bodyBuffer;
@@ -130,7 +130,7 @@ export async function handleProxyRequest(req, res) {
       'Access-Control-Allow-Origin': '*'
     });
     res.end(JSON.stringify({
-      error: isTimeout ? 'Gateway Timeout: AI provider took longer than 12 seconds.' : `Proxy Error: ${err.message}`
+      error: isTimeout ? 'Gateway Timeout: AI provider took longer than 55 seconds.' : `Proxy Error: ${err.message}`
     }));
   }
 }

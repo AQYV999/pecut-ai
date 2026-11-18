@@ -15,6 +15,9 @@ const {
   createChatSession,
   saveChatSession,
   deleteChatSession,
+  clearActiveChatSession,
+  buildCleanHistoryPayload,
+  formatMarkdown,
   getActiveChatSession,
   setActiveChatSessionId,
   extractHtmlCode,
@@ -86,4 +89,45 @@ test('CHAT_MODES provides system prompts for coder, webdev, and general', () => 
   assert.ok(CHAT_MODES.webdev);
   assert.ok(CHAT_MODES.general);
   assert.ok(CHAT_MODES.coder.systemPrompt.includes('code'));
+});
+
+test('clearActiveChatSession wipes messages and resets title', () => {
+  storageStore.clear();
+  const s = createChatSession('Old Chat');
+  saveChatSession({
+    id: s.id,
+    messages: [{ id: '1', role: 'user', content: 'old message' }]
+  });
+  assert.equal(getActiveChatSession().messages.length, 1);
+
+  clearActiveChatSession();
+  const cleared = getActiveChatSession();
+  assert.equal(cleared.messages.length, 0);
+  assert.equal(cleared.title, 'New Conversation');
+});
+
+test('buildCleanHistoryPayload filters out welcome, errors, and respects char budget', () => {
+  const msgs = [
+    { id: 'msg_welcome', role: 'assistant', content: 'Welcome!' },
+    { id: 'u1', role: 'user', content: 'A'.repeat(200) },
+    { id: 'msg_err_1', role: 'assistant', content: 'Error happened' },
+    { id: 'e2', role: 'assistant', isError: true, content: 'Another error' },
+    { id: 'u2', role: 'user', content: 'Hello new model' }
+  ];
+
+  const payload = buildCleanHistoryPayload(msgs, 10, 100);
+  assert.equal(payload.length, 1);
+  assert.equal(payload[0].content, 'Hello new model');
+
+  const fullPayload = buildCleanHistoryPayload(msgs, 10, 5000);
+  assert.equal(fullPayload.length, 2);
+  assert.equal(fullPayload[0].content, 'A'.repeat(200));
+  assert.equal(fullPayload[1].content, 'Hello new model');
+});
+
+test('formatMarkdown gracefully closes truncated code fences', () => {
+  const truncated = 'Here is CSS:\n```css\n.bg { color: red;';
+  const html = formatMarkdown(truncated);
+  assert.ok(html.includes('code-block-wrapper'));
+  assert.ok(html.includes('.bg { color: red;'));
 });
