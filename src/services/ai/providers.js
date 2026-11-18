@@ -136,7 +136,8 @@ export async function testAIConnection(config) {
 export function getActiveProviderInfo() {
   const config = loadBYOKConfig();
   const preset = PROVIDER_PRESETS[config.provider] || PROVIDER_PRESETS.openrouter;
-  const hasKey = Boolean(config.apiKey && config.apiKey.trim()) || config.provider === 'custom';
+  const isKeylessProvider = config.provider === 'custom' || config.provider === 'ninerouter';
+  const hasKey = Boolean(config.apiKey && config.apiKey.trim()) || isKeylessProvider;
   return {
     provider: config.provider,
     name: preset.name,

@@ -6,6 +6,27 @@
 import { appState, saveState, applyTheme } from './storage.js';
 import { showToast } from '../utils/helpers.js';
 
+/**
+ * Strips sensitive credentials (API keys) from state before export.
+ * Sanitizes both active BYOK config and any multi-provider profile slots.
+ * @param {Object} state
+ * @returns {Object}
+ */
+export function getSafeExportState(state = appState) {
+  const safeState = JSON.parse(JSON.stringify(state));
+  if (safeState.byok && typeof safeState.byok === 'object') {
+    delete safeState.byok.apiKey;
+  }
+  if (safeState.byokProfiles && typeof safeState.byokProfiles === 'object') {
+    for (const p of Object.values(safeState.byokProfiles)) {
+      if (p && typeof p === 'object') {
+        delete p.apiKey;
+      }
+    }
+  }
+  return safeState;
+}
+
 export function initSettings() {
   const s = appState.settings;
 
@@ -45,14 +66,15 @@ export function initSettings() {
   const exportAllBtn = document.getElementById('exportAllDataBtn');
   if (exportAllBtn) {
     exportAllBtn.addEventListener('click', () => {
-      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(appState, null, 2));
+      const safeData = getSafeExportState(appState);
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(safeData, null, 2));
       const dl = document.createElement('a');
       dl.setAttribute('href', dataStr);
       dl.setAttribute('download', `pecut_ai_complete_backup_${Date.now()}.json`);
       document.body.appendChild(dl);
       dl.click();
       dl.remove();
-      showToast('Complete workspace backup exported!');
+      showToast('Complete workspace backup exported (API keys stripped for security)!');
     });
   }
 

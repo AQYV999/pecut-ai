@@ -22,7 +22,7 @@ export async function optimizePromptWithAI(prompt, goals = []) {
   const byok = loadBYOKConfig();
 
   // Tier 1: Client BYOK configured
-  if (byok.apiKey || byok.provider === 'custom') {
+  if (byok.apiKey || byok.provider === 'custom' || byok.provider === 'ninerouter') {
     try {
       const goalsText = goals.length ? goals.join(', ') : 'clarity, structure, precision, actionable constraints';
       const systemPrompt = `You are Pecut AI's Senior Prompt Optimization Engine.
@@ -106,7 +106,7 @@ export async function executeFlowStep(stepData) {
   const byok = loadBYOKConfig();
 
   // Tier 1: Client BYOK configured
-  if (byok.apiKey || byok.provider === 'custom') {
+  if (byok.apiKey || byok.provider === 'custom' || byok.provider === 'ninerouter') {
     try {
       const promptText = `WORKFLOW INPUT:\n${stepData.inputData}\n\nPREVIOUS STEP OUTPUT:\n${stepData.previousOutput || '(Initial step - no previous output)'}\n\nTASK INSTRUCTIONS:\n${stepData.stepInstruction}`;
       const systemPrompt = `You are Pecut AI Workflow Engine executing Step ${Number(stepData.stepIndex) + 1}: "${stepData.stepTitle}". Provide a direct, authoritative, structured output. Avoid filler text.`;

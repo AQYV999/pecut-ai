@@ -9,3 +9,8 @@ supabase/.temp/
 .superpowers/
 .vercel
 .env*
+
+# Binary documentation & promo assets
+*.docx
+pecut_ai_promo_banner.jpg
+tools/create_guide_doc.py

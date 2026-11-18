@@ -19,6 +19,8 @@ export const ALLOWED_DOMAINS = [
   'abc-tunnel.us'
 ];
 
+export const MAX_PROXY_BODY_BYTES = 2 * 1024 * 1024; // 2 MB limit to prevent buffer exhaustion DoS
+
 /**
  * Validates whether a target URL is in the domain allowlist (Anti-SSRF).
  * @param {string} urlString
@@ -82,17 +84,42 @@ export async function handleProxyRequest(req, res) {
   // Parse body only for POST
   let bodyBuffer = null;
   if (req.method === 'POST') {
+    // Fast-fail: Reject upfront if Content-Length header exceeds limit
+    const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+    if (contentLength > MAX_PROXY_BODY_BYTES) {
+      res.writeHead(413, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify({ error: 'Payload Too Large: Proxy limits request body to 2MB.' }));
+    }
+
     if (req.body && typeof req.body === 'object') {
       bodyBuffer = JSON.stringify(req.body);
     } else if (typeof req.body === 'string') {
       bodyBuffer = req.body;
     } else {
+      let isTooLarge = false;
       bodyBuffer = await new Promise((resolve) => {
         let data = '';
-        req.on('data', chunk => { data += chunk; });
+        req.on('data', chunk => {
+          data += chunk;
+          if (data.length > MAX_PROXY_BODY_BYTES) {
+            isTooLarge = true;
+            if (typeof req.destroy === 'function') req.destroy();
+            resolve(null);
+          }
+        });
         req.on('end', () => resolve(data));
         req.on('error', () => resolve(''));
       });
+
+      if (isTooLarge) {
+        res.writeHead(413, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ error: 'Payload Too Large: Proxy limits request body to 2MB.' }));
+      }
+    }
+
+    if (bodyBuffer && bodyBuffer.length > MAX_PROXY_BODY_BYTES) {
+      res.writeHead(413, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify({ error: 'Payload Too Large: Proxy limits request body to 2MB.' }));
     }
   }
 

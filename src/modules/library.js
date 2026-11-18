@@ -7,6 +7,52 @@ import { appState, saveState } from './storage.js';
 import { registerViewHandler } from './navigation.js';
 import { escapeHtml, showToast } from '../utils/helpers.js';
 
+/**
+ * Validates and sanitizes an imported list of prompts against malicious structures and XSS payloads.
+ * @param {any} raw
+ * @returns {Array<Object>}
+ */
+export function sanitizeImportedPrompts(raw) {
+  if (!Array.isArray(raw)) return [];
+  const safe = [];
+  const safeIdRegex = /^[a-zA-Z0-9_-]{1,64}$/;
+
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+
+    const rawTitle = typeof item.title === 'string' ? item.title.trim() : '';
+    const rawContent = typeof item.content === 'string' ? item.content.trim() : '';
+    if (!rawContent && !rawTitle) continue;
+
+    const title = rawTitle || 'Untitled Prompt';
+    const content = rawContent;
+
+    const rawId = typeof item.id === 'string' ? item.id.trim() : '';
+    const id = safeIdRegex.test(rawId)
+      ? rawId
+      : 'prompt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+
+    const category = typeof item.category === 'string' && item.category.trim()
+      ? item.category.trim()
+      : 'General';
+
+    const isFavorite = Boolean(item.isFavorite);
+    const createdAt = typeof item.createdAt === 'string' && !isNaN(Date.parse(item.createdAt))
+      ? item.createdAt
+      : new Date().toISOString();
+
+    safe.push({
+      id,
+      title,
+      category,
+      content,
+      isFavorite,
+      createdAt
+    });
+  }
+  return safe;
+}
+
 export function renderLibrary() {
   const grid = document.getElementById('promptLibraryGrid');
   if (!grid) return;
@@ -43,16 +89,16 @@ export function renderLibrary() {
       <div class="card-top-row">
         <span class="badge-cat">${escapeHtml(item.category)}</span>
         <div class="card-actions-top">
-          <button type="button" class="btn-icon" onclick="toggleFavorite('${item.id}')" title="Favorite">
+          <button type="button" class="btn-icon" data-action="fav" data-id="${escapeHtml(item.id)}" title="Favorite">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="${item.isFavorite ? 'var(--accent)' : 'none'}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           </button>
-          <button type="button" class="btn-icon" onclick="duplicatePrompt('${item.id}')" title="Duplicate">
+          <button type="button" class="btn-icon" data-action="duplicate" data-id="${escapeHtml(item.id)}" title="Duplicate">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
-          <button type="button" class="btn-icon" onclick="openEditModal('${item.id}')" title="Edit">
+          <button type="button" class="btn-icon" data-action="edit" data-id="${escapeHtml(item.id)}" title="Edit">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
-          <button type="button" class="btn-icon" onclick="deletePrompt('${item.id}')" title="Delete">
+          <button type="button" class="btn-icon" data-action="delete" data-id="${escapeHtml(item.id)}" title="Delete">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           </button>
         </div>
@@ -61,7 +107,7 @@ export function renderLibrary() {
       <p>${escapeHtml(item.content)}</p>
       <div class="prompt-card-footer">
         <span>${new Date(item.createdAt).toLocaleDateString()}</span>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="copyPromptText('${item.id}')">Copy Prompt</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-action="copy" data-id="${escapeHtml(item.id)}">Copy Prompt</button>
       </div>
     </div>
   `).join('');
@@ -162,22 +208,23 @@ export function importLibraryJSON(e) {
   reader.onload = function(event) {
     try {
       const imported = JSON.parse(event.target.result);
-      if (Array.isArray(imported)) {
-        appState.savedPrompts = [...imported, ...appState.savedPrompts];
+      const safePrompts = sanitizeImportedPrompts(imported);
+      if (safePrompts.length > 0) {
+        appState.savedPrompts = [...safePrompts, ...appState.savedPrompts];
         saveState();
         renderLibrary();
-        showToast(`Successfully imported ${imported.length} prompts!`);
+        showToast(`Successfully imported ${safePrompts.length} prompts!`);
       } else {
-        throw new Error('Invalid format');
+        throw new Error('No valid prompts found in JSON file.');
       }
-    } catch (_) {
-      showToast('Error parsing JSON file.', 'error');
+    } catch (err) {
+      showToast(err.message || 'Error parsing JSON file.', 'error');
     }
   };
   reader.readAsText(file);
 }
 
-// Global window attachments for inline event handlers
+// Global window attachments for backward compatibility
 if (typeof window !== 'undefined') {
   window.toggleFavorite = toggleFavorite;
   window.duplicatePrompt = duplicatePrompt;
@@ -198,6 +245,24 @@ export function initEditModal() {
 }
 
 export function initLibrary() {
+  const grid = document.getElementById('promptLibraryGrid');
+  if (grid) {
+    // Secure Event Delegation: replaces vulnerable inline string onclicks
+    grid.addEventListener('click', (e) => {
+      const actionBtn = e.target.closest('[data-action]');
+      if (!actionBtn) return;
+      const action = actionBtn.getAttribute('data-action');
+      const id = actionBtn.getAttribute('data-id');
+      if (!id) return;
+
+      if (action === 'fav') toggleFavorite(id);
+      else if (action === 'duplicate') duplicatePrompt(id);
+      else if (action === 'edit') openEditModal(id);
+      else if (action === 'delete') deletePrompt(id);
+      else if (action === 'copy') copyPromptText(id);
+    });
+  }
+
   const searchInput = document.getElementById('libSearchInput');
   if (searchInput) searchInput.addEventListener('input', renderLibrary);
 

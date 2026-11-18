@@ -591,6 +591,26 @@
                 <p>Execute multi-step AI pipelines sequentially, passing context from step to step.</p>
               </div>
 
+              <!-- Sidebar Action Bar: Create, Import, Export -->
+              <div class="flow-sidebar-actions">
+                <button type="button" class="btn btn-primary btn-sm" id="btnCreateFlow" style="flex: 1;" title="Create new custom workflow">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  New Workflow
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btnExportFlows" title="Export Workflows (JSON)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btnImportFlowTrigger" title="Import Workflows (JSON)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </button>
+                <input type="file" id="flowFileInput" accept=".json,.pecut-flow.json" style="display: none;">
+              </div>
+
+              <!-- Filter Search -->
+              <div class="flow-search-wrap" style="margin-top: 0.5rem; margin-bottom: 0.75rem;">
+                <input type="text" id="flowSearchInput" placeholder="Filter workflows..." style="font-size: 0.82rem; padding: 0.4rem 0.6rem; width: 100%;">
+              </div>
+
               <div class="flow-selector-group">
                 <label>Select Pipeline</label>
                 <div class="flow-selector-list" id="flowSelectorList">
@@ -609,36 +629,183 @@
               </button>
             </div>
 
-            <!-- Right Pane: Flow Visualizer & Outputs -->
+            <!-- Right Pane: Flow Visualizer & Builder -->
             <div class="flow-main-pane">
+              <!-- Flow Active Header & Mode Switching -->
               <div class="flow-active-header">
-                <h3 id="flowActiveTitle">Workflow Pipeline</h3>
-                <p id="flowActiveDesc">Workflow description</p>
-              </div>
-
-              <div class="flow-steps-visualizer" id="flowStepsVisualizer">
-                <!-- Step nodes -->
-              </div>
-
-              <!-- Output Container -->
-              <div class="flow-results-container" id="flowResultsContainer" style="display: none;">
-                <div class="flow-results-header">
-                  <h4>Pipeline Output</h4>
-                  <div class="flow-results-actions">
-                    <button type="button" class="btn btn-secondary btn-sm" id="copyFlowResultBtn">Copy Output</button>
-                    <button type="button" class="btn btn-secondary btn-sm" id="sendFlowToBuilderBtn">Send to Builder</button>
-                    <button type="button" class="btn btn-primary btn-sm" id="saveFlowToLibBtn">Save to Library</button>
+                <div class="flow-header-top-row">
+                  <div class="flow-header-meta">
+                    <span class="badge-cat" id="flowActiveCategory">General</span>
+                    <span class="step-count-badge" id="flowActiveStepCount">3 Steps</span>
+                  </div>
+                  <div class="flow-mode-toggle">
+                    <button type="button" class="flow-mode-btn active" id="flowTabRun">Run Pipeline</button>
+                    <button type="button" class="flow-mode-btn" id="flowTabEdit">Workflow Builder</button>
                   </div>
                 </div>
 
-                <div class="comp-tabs-header" id="flowResultTabs" style="margin-bottom: 1rem;">
-                  <!-- Dynamic tabs -->
+                <!-- Run Mode Summary -->
+                <div id="flowRunHeaderSummary">
+                  <h3 id="flowActiveTitle">Workflow Pipeline</h3>
+                  <p id="flowActiveDesc">Workflow description</p>
                 </div>
 
-                <div class="flow-result-output-box">
-                  <pre id="flowActiveResultOutput" style="font-family: var(--font-mono); font-size: 0.88rem; line-height: 1.6; white-space: pre-wrap; color: var(--text-primary);"></pre>
+                <!-- Edit Mode Fields -->
+                <div id="flowEditHeaderFields" style="display: none; margin-top: 1rem;">
+                  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 0.75rem;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label for="flowEditTitle" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Workflow Title</label>
+                      <input type="text" id="flowEditTitle" placeholder="e.g. Code Review & Test Generation">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label for="flowEditCategory" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Category</label>
+                      <select id="flowEditCategory">
+                        <option value="Engineering">Engineering</option>
+                        <option value="Development">Development</option>
+                        <option value="Content">Content</option>
+                        <option value="Productivity">Productivity</option>
+                        <option value="Research">Research</option>
+                        <option value="General">General</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label for="flowEditDesc" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Description</label>
+                      <input type="text" id="flowEditDesc" placeholder="Brief summary of workflow objective">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label for="flowEditDefaultProfile" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Default Context Profile (Workflow Persona)</label>
+                      <select id="flowEditDefaultProfile">
+                        <option value="">(None - No Persona)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary btn-sm" id="btnDuplicateActiveFlow">Duplicate</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btnDeleteActiveFlow" style="color: var(--danger, #ef4444);">Delete</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="btnSaveFlow">Save Changes</button>
+                  </div>
                 </div>
               </div>
+
+              <!-- Stale Invalidation Notice Banner -->
+              <div class="flow-stale-banner" id="flowInvalidationNotice" style="display: none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span><strong>Pipeline Modified:</strong> Step instructions or order changed. Downstream results are outdated and will be re-computed on next run.</span>
+              </div>
+
+              <!-- Reference Validation Errors Banner -->
+              <div class="flow-validation-alert" id="flowValidationAlert" style="display: none;">
+                <div id="flowValidationErrorsList"></div>
+              </div>
+
+              <!-- RUN VIEW -->
+              <div id="flowRunView">
+                <!-- Real-Time Telemetry & Control Dashboard -->
+                <div class="flow-telemetry-panel" id="flowTelemetryPanel" style="display: none;">
+                  <div class="telemetry-top-bar">
+                    <div class="telemetry-status-group">
+                      <span class="telemetry-state-badge state-idle" id="telemetryStateBadge">IDLE</span>
+                      <span class="telemetry-progress-label" id="telemetryProgressLabel">Ready to run pipeline</span>
+                    </div>
+                    <div class="telemetry-metrics-group">
+                      <span class="telemetry-timer" id="telemetryTimer" title="Total Execution Duration">⏱ 00:00.0s</span>
+                      <span class="telemetry-tokens" id="telemetryTokens" title="Total Token Usage" style="display: none;">0 tokens</span>
+                    </div>
+                  </div>
+
+                  <!-- Progress Bar -->
+                  <div class="telemetry-progress-track">
+                    <div class="telemetry-progress-fill" id="telemetryProgressFill" style="width: 0%;"></div>
+                  </div>
+
+                  <!-- Error Alert Box -->
+                  <div class="telemetry-error-alert" id="telemetryErrorAlert" style="display: none;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span id="telemetryErrorMessage">Error message</span>
+                  </div>
+
+                  <!-- Execution Action Controls -->
+                  <div class="telemetry-controls" id="telemetryControls">
+                    <button type="button" class="btn btn-sm btn-danger" id="btnCancelFlowExecution" style="display: none;">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6"/></svg>
+                      Cancel Execution
+                    </button>
+                    <button type="button" class="btn btn-sm btn-warning" id="btnRetryFailedStep" style="display: none;">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                      Retry Step
+                    </button>
+                    <button type="button" class="btn btn-sm btn-primary" id="btnResumePipeline" style="display: none;">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                      Resume Pipeline
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary" id="btnResetFlowRun" style="display: none;">
+                      Reset Run
+                    </button>
+                  </div>
+                </div>
+
+                <div class="flow-steps-visualizer" id="flowStepsVisualizer">
+                  <!-- Step nodes -->
+                </div>
+
+                <!-- Output Container -->
+                <div class="flow-results-container" id="flowResultsContainer" style="display: none; margin-top: 1.5rem;">
+                  <div class="flow-results-header">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                      <h4 style="margin: 0;">Pipeline Output</h4>
+                      <div class="flow-view-mode-toggle">
+                        <button type="button" class="view-mode-btn active" id="btnModeMarkdown">Rendered</button>
+                        <button type="button" class="view-mode-btn" id="btnModeRaw">Raw Text</button>
+                      </div>
+                    </div>
+                    <div class="flow-results-actions">
+                      <button type="button" class="btn btn-secondary btn-sm" id="copyFlowResultBtn" title="Copy active output">Copy Output</button>
+                      <button type="button" class="btn btn-secondary btn-sm" id="downloadFlowResultBtn" title="Download output as Markdown (.md)">Download .md</button>
+                      <button type="button" class="btn btn-secondary btn-sm" id="sendFlowToCanvasBtn" title="Send to Workspace Canvas">Send to Canvas</button>
+                      <button type="button" class="btn btn-secondary btn-sm" id="sendFlowToBuilderBtn" title="Send to Prompt Builder">Send to Builder</button>
+                      <button type="button" class="btn btn-primary btn-sm" id="saveFlowToLibBtn" title="Save to Prompt Library">Save to Library</button>
+                    </div>
+                  </div>
+
+                  <div class="comp-tabs-header" id="flowResultTabs" style="margin-bottom: 1rem;">
+                    <!-- Dynamic tabs -->
+                  </div>
+
+                  <!-- Collapsible Reasoning / Thinking Process Box -->
+                  <div id="flowThinkingContainer" style="margin-bottom: 0.75rem;"></div>
+
+                  <div class="flow-result-output-box">
+                    <div id="flowActiveResultRendered" class="flow-rendered-markdown" style="font-size: 0.9rem; line-height: 1.6; color: var(--text-primary);"></div>
+                    <pre id="flowActiveResultOutput" style="display: none; font-family: var(--font-mono); font-size: 0.88rem; line-height: 1.6; white-space: pre-wrap; color: var(--text-primary); margin: 0;"></pre>
+                  </div>
+                </div>
+
+                <!-- Execution Run History Section -->
+                <div class="flow-run-history-section" id="flowRunHistorySection" style="margin-top: 2rem;">
+                  <div class="history-section-header">
+                    <h5 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">Execution Run History</h5>
+                    <button type="button" class="btn btn-ghost btn-xs" id="btnClearFlowRuns" style="color: var(--text-tertiary);">Clear History</button>
+                  </div>
+                  <div class="flow-run-history-list" id="flowRunHistoryList" style="margin-top: 0.75rem;">
+                    <!-- Dynamic past runs -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- BUILDER / EDIT VIEW -->
+              <div id="flowBuilderView" style="display: none;">
+                <div class="flow-steps-editor" id="flowStepsEditor">
+                  <!-- Dynamic step editor cards -->
+                </div>
+
+                <button type="button" class="btn btn-secondary" id="btnAddStepBtn" style="width: 100%; margin-top: 1.25rem; border-style: dashed; padding: 0.75rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Add Step to Pipeline
+                </button>
+              </div>
+
             </div>
           </div>
         </section>

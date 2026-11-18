@@ -7,6 +7,27 @@ import { loadBYOKConfig } from '../../modules/storage.js';
 import { PROVIDER_PRESETS } from '../../data/models.js';
 
 /**
+ * Sleep helper that wakes up and rejects immediately if AbortSignal is triggered.
+ * @param {number} ms
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<void>}
+ */
+export function abortableSleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal && signal.aborted) {
+      return reject(new DOMException('The user aborted a request.', 'AbortError'));
+    }
+    const timer = setTimeout(resolve, ms);
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        clearTimeout(timer);
+        reject(new DOMException('The user aborted a request.', 'AbortError'));
+      }, { once: true });
+    }
+  });
+}
+
+/**
  * Checks if a given URL points to a local machine / loopback interface.
  * @param {string} urlString
  * @returns {boolean}
@@ -42,7 +63,7 @@ export async function parseRobustJson(res) {
       return JSON.parse(stripped);
     } catch (_) {}
 
-    // 2. Extract first matching valid JSON block
+    // 2. Extract first matching valid JSON block with bounded bracket search (prevents O(N²) freeze)
     const firstBrace = text.indexOf('{');
     const firstBracket = text.indexOf('[');
     let startIdx = -1;
@@ -55,11 +76,19 @@ export async function parseRobustJson(res) {
     }
 
     if (startIdx !== -1) {
-      for (let endIdx = text.length; endIdx > startIdx; endIdx--) {
-        const candidate = text.slice(startIdx, endIdx).trim();
+      const lastBrace = text.lastIndexOf('}');
+      const lastBracket = text.lastIndexOf(']');
+      let endCandidate = Math.max(lastBrace, lastBracket);
+      let attempts = 0;
+      while (endCandidate > startIdx && attempts < 10) {
+        const candidate = text.slice(startIdx, endCandidate + 1).trim();
         try {
           return JSON.parse(candidate);
         } catch (_) {}
+        const prevBrace = text.lastIndexOf('}', endCandidate - 1);
+        const prevBracket = text.lastIndexOf(']', endCandidate - 1);
+        endCandidate = Math.max(prevBrace, prevBracket);
+        attempts++;
       }
     }
 
@@ -105,7 +134,8 @@ export function buildChatPayload({ model, messages = [], systemPrompt, temperatu
  * @param {number} [options.temperature]
  * @param {number} [options.maxTokens]
  * @param {Object} [options.overrideConfig]
- * @returns {Promise<{ text: string, reasoning: string, raw: Object, provider: string, model: string, finishReason: string, truncated: boolean, isReasoningOnly: boolean }>}
+ * @param {AbortSignal} [options.signal]
+ * @returns {Promise<{ text: string, reasoning: string, raw: Object, provider: string, model: string, finishReason: string, truncated: boolean, isReasoningOnly: boolean, usage: { promptTokens: number, completionTokens: number, totalTokens: number } }>}
  */
 export async function completeChat(options = {}) {
   const config = options.overrideConfig || loadBYOKConfig();
@@ -136,6 +166,11 @@ export async function completeChat(options = {}) {
   let lastError = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    // Immediate early abort check
+    if (options.signal && options.signal.aborted) {
+      throw new DOMException('The user aborted a request.', 'AbortError');
+    }
+
     try {
       const isLocal = isLocalOrigin(targetUrl);
 
@@ -148,31 +183,29 @@ export async function completeChat(options = {}) {
         );
       }
 
+      const fetchOpts = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader
+        },
+        body: JSON.stringify(payload)
+      };
+      if (options.signal) {
+        fetchOpts.signal = options.signal;
+      }
+
       let res;
       if (isLocal) {
         // Direct local dispatch (e.g. Ollama / LMStudio / local 9Router on HTTP)
-        res = await fetch(targetUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': authHeader
-          },
-          body: JSON.stringify(payload)
-        });
+        res = await fetch(targetUrl, fetchOpts);
       } else if (provider === 'ninerouter' || provider === 'custom') {
         // For custom or 9Router HTTPS endpoints (such as Cloudflare Tunnel):
         // Try direct browser fetch first (CORS allowed by 9Router), fallback to proxy
         try {
-          res = await fetch(targetUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': authHeader
-            },
-            body: JSON.stringify(payload)
-          });
+          res = await fetch(targetUrl, fetchOpts);
         } catch (_) {
-          res = await fetch('/api/ai/proxy', {
+          const proxyOpts = {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -180,11 +213,13 @@ export async function completeChat(options = {}) {
               'x-target-url': targetUrl
             },
             body: JSON.stringify(payload)
-          });
+          };
+          if (options.signal) proxyOpts.signal = options.signal;
+          res = await fetch('/api/ai/proxy', proxyOpts);
         }
       } else {
         // Cloud dispatch via universal proxy
-        res = await fetch('/api/ai/proxy', {
+        const proxyOpts = {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -192,7 +227,9 @@ export async function completeChat(options = {}) {
             'x-target-url': targetUrl
           },
           body: JSON.stringify(payload)
-        });
+        };
+        if (options.signal) proxyOpts.signal = options.signal;
+        res = await fetch('/api/ai/proxy', proxyOpts);
       }
 
       if (!res.ok) {
@@ -208,10 +245,24 @@ export async function completeChat(options = {}) {
           continue;
         }
 
+        // If provider returns HTTP 429 (Rate Limit), handle Retry-After header or exponential backoff
+        if (res.status === 429 && attempt < maxRetries) {
+          const retryHeader = res.headers && typeof res.headers.get === 'function' ? res.headers.get('retry-after') : null;
+          let delayMs = 1500 * Math.pow(2, attempt);
+          if (retryHeader) {
+            const parsedSeconds = parseInt(retryHeader, 10);
+            if (!isNaN(parsedSeconds) && parsedSeconds > 0) {
+              delayMs = Math.min(parsedSeconds * 1000, 10000);
+            }
+          }
+          await abortableSleep(delayMs, options.signal);
+          continue;
+        }
+
         // If Google or another provider returns 503 or "high demand", auto-retry after backoff
         const isHighDemand = res.status === 503 || msg.toLowerCase().includes('high demand') || msg.toLowerCase().includes('temporarily unavailable');
         if (isHighDemand && attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
+          await abortableSleep(1500 * (attempt + 1), options.signal);
           continue;
         }
 
@@ -268,6 +319,14 @@ export async function completeChat(options = {}) {
         throw new Error('AI provider returned an empty completion.');
       }
 
+      // Normalized token usage telemetry
+      const rawUsage = data.usage || {};
+      const usage = {
+        promptTokens: Number(rawUsage.prompt_tokens || rawUsage.promptTokens || 0),
+        completionTokens: Number(rawUsage.completion_tokens || rawUsage.completionTokens || 0),
+        totalTokens: Number(rawUsage.total_tokens || rawUsage.totalTokens || 0)
+      };
+
       return {
         text: content,
         reasoning,
@@ -276,9 +335,15 @@ export async function completeChat(options = {}) {
         model,
         finishReason,
         truncated: finishReason === 'length',
-        isReasoningOnly
+        isReasoningOnly,
+        usage
       };
     } catch (err) {
+      // If request was aborted by user/caller, do not retry and propagate immediately
+      if (err.name === 'AbortError' || (options.signal && options.signal.aborted)) {
+        throw err;
+      }
+
       if (err.message && (err.message === 'Failed to fetch' || err.name === 'TypeError')) {
         if (typeof window !== 'undefined' && window.location.protocol === 'https:' && isLocalOrigin(targetUrl)) {
           throw new Error(
@@ -296,7 +361,7 @@ export async function completeChat(options = {}) {
       lastError = err;
       if (attempt >= maxRetries) throw err;
       if (err.message && (err.message.toLowerCase().includes('high demand') || err.message.toLowerCase().includes('503'))) {
-        await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
+        await abortableSleep(1500 * (attempt + 1), options.signal);
         continue;
       }
       throw err;

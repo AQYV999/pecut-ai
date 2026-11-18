@@ -14,8 +14,16 @@ function normalizeProviderEntry(providerId, rawEntry = {}) {
   const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openrouter;
   let model = rawEntry.model || preset.defaultModel;
 
-  // Auto-migrate any deprecated/unsupported Gemini models to gemini-3.8-flash
-  if (provider === 'gemini' && model !== 'gemini-3.8-flash') {
+  // Auto-migrate known deprecated Gemini models to gemini-3.8-flash, while preserving other valid Gemini models
+  const DEPRECATED_GEMINI_MODELS = [
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-exp',
+    'gemini-pro',
+    'gemini-1.0-pro'
+  ];
+  if (provider === 'gemini' && DEPRECATED_GEMINI_MODELS.includes(model)) {
     model = 'gemini-3.8-flash';
   }
 
