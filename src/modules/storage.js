@@ -6,58 +6,146 @@
 import { DEFAULT_PROFILES } from '../data/profiles.js';
 import { PROVIDER_PRESETS } from '../data/models.js';
 
+const BYOK_CONFIG_KEY = 'pecut_byok_config';
+const BYOK_PROFILES_KEY = 'pecut_byok_profiles';
+
+function normalizeProviderEntry(providerId, rawEntry = {}) {
+  const provider = providerId || rawEntry.provider || 'openrouter';
+  const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openrouter;
+  let model = rawEntry.model || preset.defaultModel;
+
+  // Auto-migrate any deprecated/unsupported Gemini models to gemini-3.8-flash
+  if (provider === 'gemini' && model !== 'gemini-3.8-flash') {
+    model = 'gemini-3.8-flash';
+  }
+
+  return {
+    provider,
+    apiKey: (rawEntry.apiKey || '').trim(),
+    model,
+    baseUrl: (rawEntry.baseUrl || preset.baseUrl).trim()
+  };
+}
+
+/**
+ * Loads the per-provider BYOK profiles map from localStorage.
+ * Automatically migrates any existing active `pecut_byok_config` into its provider slot.
+ * @returns {Record<string, { provider: string, apiKey: string, model: string, baseUrl: string }>}
+ */
+export function loadProviderProfiles() {
+  let profiles = {};
+  try {
+    const raw = localStorage.getItem(BYOK_PROFILES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        profiles = parsed;
+      }
+    }
+  } catch (_) {
+    profiles = {};
+  }
+
+  // Seamless migration: if user already has a saved active config not yet in profiles map
+  try {
+    const rawActive = localStorage.getItem(BYOK_CONFIG_KEY);
+    if (rawActive) {
+      const active = JSON.parse(rawActive);
+      if (active && active.provider && !profiles[active.provider]) {
+        profiles[active.provider] = normalizeProviderEntry(active.provider, active);
+        localStorage.setItem(BYOK_PROFILES_KEY, JSON.stringify(profiles));
+      }
+    }
+  } catch (_) {}
+
+  return profiles;
+}
+
+/**
+ * Returns the isolated saved profile for a specific AI provider, or a clean default with empty key.
+ * @param {string} providerId
+ * @returns {{ provider: string, apiKey: string, model: string, baseUrl: string }}
+ */
+export function getProviderProfile(providerId) {
+  const provider = providerId || 'openrouter';
+  const profiles = loadProviderProfiles();
+  if (profiles[provider]) {
+    return normalizeProviderEntry(provider, profiles[provider]);
+  }
+  return normalizeProviderEntry(provider, {});
+}
+
+/**
+ * Saves credentials & endpoint strictly for a specific AI provider without affecting other providers.
+ * @param {Object} config
+ */
+export function saveProviderProfile(config) {
+  if (!config || typeof config !== 'object') return;
+  const provider = config.provider || 'openrouter';
+  const normalized = {
+    ...normalizeProviderEntry(provider, config),
+    updatedAt: new Date().toISOString()
+  };
+  const profiles = loadProviderProfiles();
+  profiles[provider] = normalized;
+  localStorage.setItem(BYOK_PROFILES_KEY, JSON.stringify(profiles));
+  return normalized;
+}
+
+/**
+ * Clears ONLY the specified provider's saved profile, preserving all other providers' keys.
+ * @param {string} providerId
+ */
+export function clearProviderProfile(providerId) {
+  if (!providerId) return;
+  const profiles = loadProviderProfiles();
+  delete profiles[providerId];
+  localStorage.setItem(BYOK_PROFILES_KEY, JSON.stringify(profiles));
+
+  const active = loadBYOKConfig();
+  if (active.provider === providerId) {
+    const preset = PROVIDER_PRESETS[providerId] || PROVIDER_PRESETS.openrouter;
+    const clearedActive = {
+      provider: providerId,
+      apiKey: '',
+      model: preset.defaultModel,
+      baseUrl: preset.baseUrl,
+      updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem(BYOK_CONFIG_KEY, JSON.stringify(clearedActive));
+    appState.byok = clearedActive;
+  }
+}
+
 // BYOK (Bring Your Own Key) Storage Configuration
 export function loadBYOKConfig() {
   try {
-    const raw = localStorage.getItem('pecut_byok_config');
+    const raw = localStorage.getItem(BYOK_CONFIG_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      const provider = parsed.provider || 'openrouter';
-      const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openrouter;
-      let model = parsed.model || preset.defaultModel;
-
-      // Auto-migrate any deprecated/unsupported Gemini models to gemini-3.8-flash
-      if (provider === 'gemini' && model !== 'gemini-3.8-flash') {
-        model = 'gemini-3.8-flash';
-      }
-
-      return {
-        provider,
-        apiKey: parsed.apiKey || '',
-        model,
-        baseUrl: parsed.baseUrl || preset.baseUrl
-      };
+      return normalizeProviderEntry(parsed.provider || 'openrouter', parsed);
     }
   } catch (_) {
     // fallback to default
   }
 
-  const defaultPreset = PROVIDER_PRESETS.openrouter;
-  return {
-    provider: 'openrouter',
-    apiKey: '',
-    model: defaultPreset.defaultModel,
-    baseUrl: defaultPreset.baseUrl
-  };
+  return normalizeProviderEntry('openrouter', {});
 }
 
 export function saveBYOKConfig(config) {
   if (!config || typeof config !== 'object') return;
-  const provider = config.provider || 'openrouter';
-  const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openrouter;
-  const payload = {
-    provider,
-    apiKey: (config.apiKey || '').trim(),
-    model: config.model || preset.defaultModel,
-    baseUrl: config.baseUrl || preset.baseUrl,
-    updatedAt: new Date().toISOString()
-  };
-  localStorage.setItem('pecut_byok_config', JSON.stringify(payload));
-  appState.byok = payload;
+  const saved = saveProviderProfile(config);
+  localStorage.setItem(BYOK_CONFIG_KEY, JSON.stringify(saved));
+  appState.byok = saved;
 }
 
-export function clearBYOKConfig() {
-  localStorage.removeItem('pecut_byok_config');
+export function clearBYOKConfig(providerId = null) {
+  if (providerId) {
+    clearProviderProfile(providerId);
+    return;
+  }
+  localStorage.removeItem(BYOK_CONFIG_KEY);
+  localStorage.removeItem(BYOK_PROFILES_KEY);
   appState.byok = loadBYOKConfig();
 }
 

@@ -4,11 +4,85 @@
  */
 
 import { PROVIDER_PRESETS } from '../data/models.js';
-import { loadBYOKConfig, saveBYOKConfig, clearBYOKConfig } from './storage.js';
+import {
+  loadBYOKConfig,
+  saveBYOKConfig,
+  clearBYOKConfig,
+  getProviderProfile,
+  loadProviderProfiles
+} from './storage.js';
 import { testAIConnection, getActiveProviderInfo, fetchProviderModels } from '../services/ai/client.js';
 import { showToast, escapeHtml } from '../utils/helpers.js';
 
 let activeDraftProvider = 'openrouter';
+let draftProfiles = {};
+
+const PROVIDER_OPTION_LABELS = {
+  openrouter: 'OpenRouter (Free & Multi-Model)',
+  gemini: 'Google Gemini (Google AI Studio)',
+  groq: 'Groq Cloud (Ultra Fast)',
+  openai: 'OpenAI (GPT-4o / Mini)',
+  ninerouter: '9Router (Local Gateway / Tunnel)',
+  custom: 'Custom / Local (Ollama, LMStudio)'
+};
+
+function refreshProviderDropdownBadges() {
+  const providerSelect = document.getElementById('byokProviderSelect');
+  if (!providerSelect) return;
+  const savedProfiles = loadProviderProfiles();
+
+  Array.from(providerSelect.options).forEach(opt => {
+    const id = opt.value;
+    const baseLabel = PROVIDER_OPTION_LABELS[id] || opt.textContent.replace(/\s*\[Tersimpan ✓\]$/, '');
+    const saved = savedProfiles[id];
+    const hasSavedCreds = Boolean(saved && (saved.apiKey || (id === 'ninerouter' && saved.baseUrl !== PROVIDER_PRESETS.ninerouter.baseUrl)));
+    opt.textContent = hasSavedCreds ? `${baseLabel} [Tersimpan ✓]` : baseLabel;
+  });
+}
+
+function captureCurrentDraft() {
+  const baseUrlInput = document.getElementById('byokBaseUrlInput');
+  const apiKeyInput = document.getElementById('byokApiKeyInput');
+  const modelInput = document.getElementById('byokModelInput');
+  if (!activeDraftProvider) return;
+
+  draftProfiles[activeDraftProvider] = {
+    provider: activeDraftProvider,
+    baseUrl: (baseUrlInput?.value || '').trim(),
+    apiKey: (apiKeyInput?.value || '').trim(),
+    model: (modelInput?.value || '').trim()
+  };
+}
+
+function applyProviderProfileToForm(providerId) {
+  const preset = PROVIDER_PRESETS[providerId] || PROVIDER_PRESETS.openrouter;
+  const profile = draftProfiles[providerId] || getProviderProfile(providerId);
+
+  const baseUrlInput = document.getElementById('byokBaseUrlInput');
+  const apiKeyInput = document.getElementById('byokApiKeyInput');
+  const modelInput = document.getElementById('byokModelInput');
+  const docsLink = document.getElementById('byokGetDocsLink');
+  const testStatus = document.getElementById('byokTestStatus');
+
+  if (baseUrlInput) baseUrlInput.value = profile.baseUrl || preset.baseUrl;
+  if (apiKeyInput) {
+    apiKeyInput.value = profile.apiKey || '';
+    apiKeyInput.placeholder = preset.placeholder;
+    apiKeyInput.type = 'password';
+  }
+  if (modelInput) modelInput.value = profile.model || preset.defaultModel;
+  if (docsLink) {
+    docsLink.href = preset.docsUrl;
+    docsLink.textContent = `Get ${preset.name} Key ↗`;
+  }
+  if (testStatus) {
+    testStatus.textContent = '';
+    testStatus.className = 'test-status-text';
+  }
+
+  renderModelPresets(providerId, profile.model || preset.defaultModel);
+  updateLocalTip(providerId, profile.baseUrl || preset.baseUrl);
+}
 
 function updateLocalTip(provider, baseUrl) {
   const tipEl = document.getElementById('byokLocalTip');
@@ -87,37 +161,16 @@ export function openAIModal() {
   const modal = document.getElementById('aiConnectionModal');
   if (!modal) return;
 
+  draftProfiles = {};
   const config = loadBYOKConfig();
   activeDraftProvider = config.provider || 'openrouter';
 
+  refreshProviderDropdownBadges();
+
   const providerSelect = document.getElementById('byokProviderSelect');
-  const baseUrlInput = document.getElementById('byokBaseUrlInput');
-  const apiKeyInput = document.getElementById('byokApiKeyInput');
-  const modelInput = document.getElementById('byokModelInput');
-  const docsLink = document.getElementById('byokGetDocsLink');
-  const testStatus = document.getElementById('byokTestStatus');
-
-  if (testStatus) {
-    testStatus.textContent = '';
-    testStatus.className = 'test-status-text';
-  }
-
   if (providerSelect) providerSelect.value = activeDraftProvider;
-  if (baseUrlInput) baseUrlInput.value = config.baseUrl;
-  if (apiKeyInput) {
-    apiKeyInput.value = config.apiKey;
-    apiKeyInput.type = 'password';
-  }
-  if (modelInput) modelInput.value = config.model;
 
-  const preset = PROVIDER_PRESETS[activeDraftProvider] || PROVIDER_PRESETS.openrouter;
-  if (docsLink) {
-    docsLink.href = preset.docsUrl;
-    docsLink.textContent = `Get ${preset.name} Key ↗`;
-  }
-
-  renderModelPresets(activeDraftProvider, config.model);
-  updateLocalTip(activeDraftProvider, config.baseUrl);
+  applyProviderProfileToForm(activeDraftProvider);
   modal.classList.add('active');
 }
 
@@ -157,27 +210,13 @@ export function initAIModal() {
     });
   }
 
-  // Provider change handler
+  // Provider change handler (isolated per-provider profile switching)
   if (providerSelect) {
     providerSelect.addEventListener('change', () => {
+      captureCurrentDraft();
       const selected = providerSelect.value;
       activeDraftProvider = selected;
-      const preset = PROVIDER_PRESETS[selected] || PROVIDER_PRESETS.openrouter;
-
-      const modelInput = document.getElementById('byokModelInput');
-      const apiKeyInput = document.getElementById('byokApiKeyInput');
-      const docsLink = document.getElementById('byokGetDocsLink');
-
-      if (baseUrlInput) baseUrlInput.value = preset.baseUrl;
-      if (modelInput) modelInput.value = preset.defaultModel;
-      if (apiKeyInput) apiKeyInput.placeholder = preset.placeholder;
-      if (docsLink) {
-        docsLink.href = preset.docsUrl;
-        docsLink.textContent = `Get ${preset.name} Key ↗`;
-      }
-
-      renderModelPresets(selected, preset.defaultModel);
-      updateLocalTip(selected, preset.baseUrl);
+      applyProviderProfileToForm(selected);
     });
   }
 
@@ -288,6 +327,8 @@ export function initAIModal() {
       const modelChanged = prevConfig.provider !== provider || prevConfig.model !== model;
 
       saveBYOKConfig({ provider, baseUrl, apiKey, model });
+      draftProfiles = {};
+      refreshProviderDropdownBadges();
       updateTopbarAIStatus();
       closeAIModal();
 
@@ -303,22 +344,24 @@ export function initAIModal() {
       }
 
       if (!modelChanged || !startFreshChat) {
-        showToast('AI Provider & BYOK settings saved to browser!');
+        showToast(`Profil ${PROVIDER_PRESETS[provider]?.name || provider} berhasil disimpan!`);
       }
     });
   }
 
-  // Clear button
+  // Clear button (clears only the selected provider profile, keeping other providers intact)
   const clearBtn = document.getElementById('byokClearBtn');
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
-      if (confirm('Are you sure you want to clear your saved API key and reset to demo mode?')) {
-        clearBYOKConfig();
-        const apiKeyInput = document.getElementById('byokApiKeyInput');
-        if (apiKeyInput) apiKeyInput.value = '';
+      const selected = document.getElementById('byokProviderSelect')?.value || activeDraftProvider;
+      const providerName = PROVIDER_PRESETS[selected]?.name || selected;
+      if (confirm(`Hapus API Key & pengaturan tersimpan khusus untuk ${providerName}? (Profil provider lain tidak akan terhapus)`)) {
+        delete draftProfiles[selected];
+        clearBYOKConfig(selected);
+        refreshProviderDropdownBadges();
+        applyProviderProfileToForm(selected);
         updateTopbarAIStatus();
-        closeAIModal();
-        showToast('API Key cleared. Reverted to Demo mode.');
+        showToast(`Profil & API Key ${providerName} telah dihapus.`);
       }
     });
   }
