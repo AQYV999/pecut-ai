@@ -93,8 +93,8 @@ The complete 10-suite Browser E2E verification test harness has been executed ag
 
 ### Suite 06: Output Viewer (`06-output-viewer.spec.js`)
 * **Objective:** Verify output tabs, markdown rendering (tables, code fences, headings), raw vs rendered toggle, clipboard copying, and XSS sanitization.
-* **Tests Executed:** 19
-* **Passed:** 19 (100%)
+* **Tests Executed:** 18
+* **Passed:** 18 (100%)
 * **Key Assertions:**
   - Individual step output tabs and Consolidated Output tab maintain ordered, intact content.
   - Markdown engine renders headings, bold/italics, lists, tables, and fenced code blocks with language tags.
@@ -105,8 +105,8 @@ The complete 10-suite Browser E2E verification test harness has been executed ag
 
 ### Suite 07: Cross-Module Handoff (`07-cross-module-handoff.spec.js`)
 * **Objective:** Verify seamless data flow from Pecut Flow to Pecut Canvas, Prompt Builder, Prompt Library, and file export.
-* **Tests Executed:** 19
-* **Passed:** 19 (100%)
+* **Tests Executed:** 21
+* **Passed:** 21 (100%)
 * **Key Assertions:**
   - "Send to Canvas" transfers step output or consolidated output, prompting for overwrite/append confirmation when document exists.
   - "Send to Prompt Builder" populates the objective field without overwriting unrelated user configuration.
@@ -116,8 +116,8 @@ The complete 10-suite Browser E2E verification test harness has been executed ag
 
 ### Suite 08: Execution History (`08-execution-history.spec.js`)
 * **Objective:** Verify run recording, status badges, history inspection, storage budgets, and cleanup.
-* **Tests Executed:** 21
-* **Passed:** 21 (100%)
+* **Tests Executed:** 23
+* **Passed:** 23 (100%)
 * **Key Assertions:**
   - Completed, Failed, and Cancelled runs are recorded in reverse chronological order with duration and token metrics.
   - "Inspect Output" restores historical results into the Output Viewer without triggering AI network requests.
@@ -128,8 +128,8 @@ The complete 10-suite Browser E2E verification test harness has been executed ag
 
 ### Suite 09: Security & Edge Cases (`09-security.spec.js`)
 * **Objective:** Verify anti-SSRF protections, credential hygiene, malicious JSON import defenses, iframe sandbox isolation, and storage resilience.
-* **Tests Executed:** 28
-* **Passed:** 28 (100%)
+* **Tests Executed:** 38
+* **Passed:** 38 (100%)
 * **Key Assertions:**
   - Zero API keys or bearer tokens appear in JSON exports, snapshots, history, markdown downloads, or browser console logs.
   - Malicious imports (invalid JSON, prototype pollution, missing fields, malicious IDs, credential injections) are rejected without corrupting existing workflows.
@@ -139,13 +139,15 @@ The complete 10-suite Browser E2E verification test harness has been executed ag
 
 ### Suite 10: Responsive UI & Cross-Browser Stability (`10-responsive-ui.spec.js`)
 * **Objective:** Verify responsive layouts across 4 standard viewports, element interactability, scrolling, and modal behavior.
-* **Tests Executed:** 32
-* **Passed:** 32 (100%)
+* **Tests Executed:** 41
+* **Passed:** 41 (100%)
 * **Viewports Verified:**
-  1. **Desktop (1440×900):** 8/8 Passed. Screenshot: `e2e/screenshots/responsive-desktop-flow.png`
-  2. **Laptop (1366×768):** 8/8 Passed. Screenshot: `e2e/screenshots/responsive-laptop-flow.png`
-  3. **Tablet (768×1024):** 8/8 Passed. Screenshot: `e2e/screenshots/responsive-tablet-flow.png`
-  4. **Mobile (390×844):** 8/8 Passed. Screenshot: `e2e/screenshots/responsive-mobile-flow.png`
+  1. **Desktop (1440×900):** 10 tests
+  2. **Laptop (1366×768):** 10 tests
+  3. **Tablet (768×1024):** 10 tests
+  4. **Mobile (390×844):** 10 tests
+  5. **Cross-Viewport Resizing:** 1 test
+  - Total: 41 tests.
 * **Key Assertions:**
   - Navigation bar, sidebar, and hamburger drawers function reliably in all screen sizes.
   - Workflow Builder and Step Editor fit within viewport boundaries with zero horizontal clipping or page-level horizontal overflow (`scrollWidth <= clientWidth`).
