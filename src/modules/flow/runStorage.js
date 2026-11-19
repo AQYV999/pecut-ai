@@ -208,8 +208,17 @@ export function deleteFlowRun(runId) {
 }
 
 /**
- * Clears all flow execution runs from storage.
+ * Clears flow execution runs from storage.
+ * If flowId is specified, clears only runs for that workflow.
+ * Otherwise clears all runs.
+ * @param {string|null} [flowId]
  */
-export function clearFlowRuns() {
-  localStorage.removeItem(RUNS_STORAGE_KEY);
+export function clearFlowRuns(flowId = null) {
+  if (flowId) {
+    const runs = loadFlowRuns();
+    const filtered = runs.filter(r => r.flowId !== flowId);
+    persistRunsInternal(filtered);
+  } else {
+    localStorage.removeItem(RUNS_STORAGE_KEY);
+  }
 }

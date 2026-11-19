@@ -122,6 +122,8 @@
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-sm);
   transition: var(--transition);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .flow-step-node .step-badge {
@@ -162,6 +164,7 @@
 
 .flow-step-node .step-content {
   flex-grow: 1;
+  min-width: 0;
 }
 
 .flow-step-node .step-content h5 {
@@ -900,4 +903,18 @@
 .flow-history-actions {
   display: flex;
   gap: 0.35rem;
+}
+
+/* Responsive overrides for Pecut Flow 2.0 */
+@media (max-width: 1024px) {
+  .flow-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .flow-step-node {
+    padding: 0.85rem;
+    gap: 0.75rem;
+  }
 }

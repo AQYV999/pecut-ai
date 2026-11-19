@@ -222,6 +222,47 @@
   }
 }
 
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+  }
+  .main-wrapper {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  .topbar {
+    padding: 0 1rem;
+  }
+  .content-area {
+    padding: 1rem;
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
+  }
+  .welcome-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1.25rem;
+    gap: 1rem;
+  }
+  .welcome-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .flow-results-actions,
+  .flow-sidebar-actions,
+  .flow-history-actions,
+  .flow-step-edit-actions,
+  .telemetry-controls {
+    flex-wrap: wrap;
+  }
+}
+
 /* Spinner utility for AI operations */
 .spin {
   animation: pecut-spin 1s linear infinite;

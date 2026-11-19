@@ -10,7 +10,8 @@ import {
   generateStepId,
   normalizeFlowV2,
   validateFlowV2,
-  migrateLegacyFlowToV2
+  migrateLegacyFlowToV2,
+  isSafeId
 } from './schema.js';
 
 export const FLOWS_STORAGE_KEY = 'pecut_flows';
@@ -261,6 +262,36 @@ export function importFlowsJSON(jsonString) {
     const errors = [];
 
     rawFlows.forEach((raw, i) => {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        errors.push(`Flow ${i + 1} is not a valid JSON object.`);
+        return;
+      }
+
+      // Explicitly reject malicious / unsafe IDs in raw flow or raw steps
+      if (raw.id && !isSafeId(raw.id)) {
+        errors.push(`Flow ${i + 1} has an invalid or unsafe flow ID "${raw.id}".`);
+        return;
+      }
+      if (Array.isArray(raw.steps)) {
+        for (let sIdx = 0; sIdx < raw.steps.length; sIdx++) {
+          const step = raw.steps[sIdx];
+          if (step && step.id && !isSafeId(step.id)) {
+            errors.push(`Flow ${i + 1} step ${sIdx + 1} has an invalid or unsafe step ID "${step.id}".`);
+            return;
+          }
+        }
+      }
+
+      // Explicitly reject flows with missing title or missing steps
+      if (!raw.title || typeof raw.title !== 'string' || !raw.title.trim()) {
+        errors.push(`Flow ${i + 1} is missing a required title.`);
+        return;
+      }
+      if (!Array.isArray(raw.steps) || raw.steps.length === 0) {
+        errors.push(`Flow ${i + 1} ("${raw.title}") must have at least one step.`);
+        return;
+      }
+
       const sanitized = sanitizeFlowSecrets(raw);
       const normalized = normalizeFlowV2(sanitized);
 

@@ -33,6 +33,7 @@ import { switchView, registerViewHandler } from './navigation.js';
 import { escapeHtml, showToast } from '../utils/helpers.js';
 import { formatRichMarkdown } from '../utils/markdown.js';
 import { applyContentToDocument } from './canvas/editor.js';
+import { openHtmlPreviewModal } from './chat/preview.js';
 import { appState, saveState, loadBYOKConfig, loadProviderProfiles } from './storage.js';
 
 let allFlows = [];
@@ -413,7 +414,7 @@ export function renderActiveFlowView() {
         <div class="flow-step-node" id="step-node-${idx}">
           <div class="step-badge">${idx + 1}</div>
           <div class="step-content">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; flex-wrap: wrap;">
               <h5>${escapeHtml(step.title)}</h5>
               <span class="step-id-badge">${escapeHtml(step.id)}</span>
               <span class="step-cred-pill ready" style="font-size: 0.68rem;">${escapeHtml(provider)}: ${escapeHtml(model)}</span>
@@ -613,13 +614,13 @@ export function renderFlowBuilder() {
                 <label style="font-size: 0.72rem; text-transform: uppercase; font-weight: 700; color: var(--text-tertiary);">
                   Temperature (0.0 - 2.0)
                 </label>
-                <input type="number" step="0.1" min="0" max="2" value="${step.temperature ?? 0.3}" oninput="window.updateStepTemperature(${idx}, this.value)" style="width: 100%; font-size: 0.8rem; padding: 0.35rem 0.5rem; background: var(--bg-color); border: 1px solid var(--surface-border); border-radius: 4px; color: var(--text-primary);">
+                <input type="number" step="0.1" min="0" max="2" value="${step.temperature ?? 0.3}" oninput="window.updateStepTemperature(${idx}, this.value)" onblur="window.clampStepTemperature(${idx}, this)" style="width: 100%; font-size: 0.8rem; padding: 0.35rem 0.5rem; background: var(--bg-color); border: 1px solid var(--surface-border); border-radius: 4px; color: var(--text-primary);">
               </div>
               <div class="form-group" style="margin-bottom: 0;">
                 <label style="font-size: 0.72rem; text-transform: uppercase; font-weight: 700; color: var(--text-tertiary);">
                   Max Tokens (256 - 65,536)
                 </label>
-                <input type="number" step="256" min="256" max="65536" value="${step.maxTokens ?? 4096}" oninput="window.updateStepMaxTokens(${idx}, this.value)" style="width: 100%; font-size: 0.8rem; padding: 0.35rem 0.5rem; background: var(--bg-color); border: 1px solid var(--surface-border); border-radius: 4px; color: var(--text-primary);">
+                <input type="number" step="256" min="256" max="65536" value="${step.maxTokens ?? 4096}" oninput="window.updateStepMaxTokens(${idx}, this.value)" onblur="window.clampStepMaxTokens(${idx}, this)" style="width: 100%; font-size: 0.8rem; padding: 0.35rem 0.5rem; background: var(--bg-color); border: 1px solid var(--surface-border); border-radius: 4px; color: var(--text-primary);">
               </div>
             </div>
           ` : ''}
@@ -724,6 +725,27 @@ export function updateStepTemperature(index, temp) {
   if (!activeFlow || !activeFlow.steps[index]) return;
   const val = parseFloat(temp);
   activeFlow.steps[index].temperature = !isNaN(val) ? val : 0.3;
+  const card = document.getElementById(`step-edit-card-${index}`);
+  const btn = card?.querySelector('.flow-advanced-toggle-btn');
+  if (btn) {
+    const isAdvOpen = openAdvancedStepIndices.has(index);
+    btn.textContent = `⚙️ Advanced Parameters (Temp: ${activeFlow.steps[index].temperature}, Max Tokens: ${activeFlow.steps[index].maxTokens ?? 4096}) ${isAdvOpen ? '▲' : '▼'}`;
+  }
+}
+
+/**
+ * Clamps a step's temperature input between 0.0 and 2.0.
+ * @param {number} index
+ * @param {HTMLInputElement} inputEl
+ */
+export function clampStepTemperature(index, inputEl) {
+  if (!activeFlow || !activeFlow.steps[index] || !inputEl) return;
+  let val = parseFloat(inputEl.value);
+  if (isNaN(val)) val = 0.3;
+  if (val < 0) val = 0;
+  if (val > 2.0) val = 2.0;
+  inputEl.value = String(val);
+  updateStepTemperature(index, val);
 }
 
 /**
@@ -735,6 +757,27 @@ export function updateStepMaxTokens(index, tokens) {
   if (!activeFlow || !activeFlow.steps[index]) return;
   const val = parseInt(tokens, 10);
   activeFlow.steps[index].maxTokens = !isNaN(val) ? val : 4096;
+  const card = document.getElementById(`step-edit-card-${index}`);
+  const btn = card?.querySelector('.flow-advanced-toggle-btn');
+  if (btn) {
+    const isAdvOpen = openAdvancedStepIndices.has(index);
+    btn.textContent = `⚙️ Advanced Parameters (Temp: ${activeFlow.steps[index].temperature ?? 0.3}, Max Tokens: ${activeFlow.steps[index].maxTokens}) ${isAdvOpen ? '▲' : '▼'}`;
+  }
+}
+
+/**
+ * Clamps a step's maxTokens input between 256 and 65536.
+ * @param {number} index
+ * @param {HTMLInputElement} inputEl
+ */
+export function clampStepMaxTokens(index, inputEl) {
+  if (!activeFlow || !activeFlow.steps[index] || !inputEl) return;
+  let val = parseInt(inputEl.value, 10);
+  if (isNaN(val)) val = 4096;
+  if (val < 256) val = 256;
+  if (val > 65536) val = 65536;
+  inputEl.value = String(val);
+  updateStepMaxTokens(index, val);
 }
 
 /**
@@ -1053,9 +1096,12 @@ export function importFlowsFromFile(file) {
       if (allFlows.length > 0) {
         selectFlow(allFlows[0].id);
       }
-      showToast(`Successfully imported ${result.count} workflow(s)!`);
+      showToast(`Successfully imported ${result.importedCount || result.count || 1} workflow(s)!`);
     } else {
-      showToast(`Import failed: ${result.error}`, 'error');
+      const errMsg = Array.isArray(result.errors) && result.errors.length > 0
+        ? result.errors.join('; ')
+        : (result.error || 'Invalid file format.');
+      showToast(`Import failed: ${errMsg}`, 'error');
     }
   };
   reader.readAsText(file);
@@ -1477,6 +1523,23 @@ export function switchFlowResultTab(tabIndex) {
   }
   if (renderedBox) {
     renderedBox.innerHTML = formatRichMarkdown(activeText);
+    renderedBox.querySelectorAll('.btn-copy-code').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const codeBlock = btn.closest('.code-block-wrapper')?.querySelector('code');
+        if (codeBlock) {
+          navigator.clipboard.writeText(codeBlock.innerText);
+          showToast('Kode berhasil disalin!');
+        }
+      });
+    });
+    renderedBox.querySelectorAll('.btn-preview-html').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const codeBlock = btn.closest('.code-block-wrapper')?.querySelector('code');
+        if (codeBlock) {
+          openHtmlPreviewModal(codeBlock.innerText);
+        }
+      });
+    });
   }
 
   updateOutputViewModeVisibility();
@@ -1515,8 +1578,18 @@ export function copyActiveFlowResult() {
     showToast('No flow output available to copy.', 'error');
     return;
   }
-  navigator.clipboard.writeText(text);
-  showToast('Flow output copied to clipboard!');
+  if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+    showToast('Clipboard API unavailable in this browser.', 'error');
+    return;
+  }
+  navigator.clipboard.writeText(text)
+    .then(() => {
+      showToast('Flow output copied to clipboard!');
+    })
+    .catch((err) => {
+      console.warn('Failed to copy flow output to clipboard:', err);
+      showToast('Unable to copy to clipboard.', 'error');
+    });
 }
 
 /**
@@ -1683,7 +1756,11 @@ export function inspectFlowRun(runId) {
  * Clears past execution runs.
  */
 export function clearCurrentFlowRuns() {
-  clearFlowRuns();
+  if (!confirm('Are you sure you want to clear execution history for this workflow?')) {
+    return;
+  }
+  const currentFlowId = activeFlow?.id;
+  clearFlowRuns(currentFlowId);
   renderFlowRunHistory();
   showToast('Flow run history cleared!');
 }
@@ -1702,7 +1779,9 @@ if (typeof window !== 'undefined') {
   window.updateStepModel = updateStepModel;
   window.updateStepProfile = updateStepProfile;
   window.updateStepTemperature = updateStepTemperature;
+  window.clampStepTemperature = clampStepTemperature;
   window.updateStepMaxTokens = updateStepMaxTokens;
+  window.clampStepMaxTokens = clampStepMaxTokens;
   window.toggleStepAdvanced = toggleStepAdvanced;
   window.updateFlowDefaultProfile = updateFlowDefaultProfile;
   window.insertFlowVariable = insertFlowVariable;

@@ -84,3 +84,7 @@ export function openHtmlPreviewModal(htmlCode) {
   }
   modal.classList.add('active');
 }
+
+if (typeof window !== 'undefined') {
+  window.openHtmlPreviewModal = openHtmlPreviewModal;
+}

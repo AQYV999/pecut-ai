@@ -13,10 +13,97 @@ import { escapeHtml } from './helpers.js';
  * @param {string} text
  * @returns {string}
  */
-function formatInlineAndBreaks(text) {
-  const withInline = text.replace(/`([^`]+)`/g, '<code>$1</code>');
-  const withBold = withInline.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  return withBold.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+/**
+ * Shared inline formatting for escaped text (inline code, bold, italic, safe links).
+ * @param {string} text
+ * @returns {string}
+ */
+function formatInline(text) {
+  let res = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+  res = res.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  res = res.replace(/(^|[^*_])(\*|_)([^*_]+)\2/g, '$1<em>$3</em>');
+  // Safe Markdown images: strictly reject javascript:, data:, and vbscript: URIs
+  res = res.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
+    const trimmed = url.trim();
+    const isSafe = /^https?:\/\/|^\/|^\.\//i.test(trimmed) && !/^(?:javascript|data|vbscript):/i.test(trimmed);
+    const safeSrc = isSafe ? trimmed : '';
+    return safeSrc ? `<img src="${safeSrc}" alt="${alt}" loading="lazy">` : '';
+  });
+  // Safe Markdown links: strictly reject javascript:, data:, and non-web URIs
+  res = res.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
+    const trimmed = url.trim();
+    const isSafe = /^https?:\/\/|^\/|^#/i.test(trimmed) && !/^(?:javascript|data|vbscript):/i.test(trimmed);
+    const safeHref = isSafe ? trimmed : '#';
+    return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+  });
+  return res;
+}
+
+/**
+ * Formats Markdown tables from escaped text.
+ * @param {string} text
+ * @returns {string}
+ */
+function formatTables(text) {
+  const tableRegex = /((?:^|\n)\|[^\n]+\|\r?\n\|[-:\s|]+\|\r?\n(?:\|[^\n]+\|\r?\n?)+)/g;
+  return text.replace(tableRegex, (match) => {
+    const lines = match.trim().split(/\r?\n/).map(l => l.trim());
+    if (lines.length < 3) return match;
+    const headerRow = lines[0];
+    const dataRows = lines.slice(2);
+
+    const parseCells = (row) => row.replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+    const headers = parseCells(headerRow);
+    const thead = `<thead><tr>${headers.map(h => `<th>${formatInline(h)}</th>`).join('')}</tr></thead>`;
+    const tbody = `<tbody>${dataRows.map(r => `<tr>${parseCells(r).map(c => `<td>${formatInline(c)}</td>`).join('')}</tr>`).join('')}</tbody>`;
+    return `\n<table class="flow-markdown-table">${thead}${tbody}</table>\n`;
+  });
+}
+
+/**
+ * Formats Markdown block elements (headings, blockquotes, lists).
+ * @param {string} text
+ * @returns {string}
+ */
+function formatBlockElements(text) {
+  // Headings
+  let res = text
+    .replace(/^######\s+(.+)$/gm, '<h6>$1</h6>')
+    .replace(/^#####\s+(.+)$/gm, '<h5>$1</h5>')
+    .replace(/^####\s+(.+)$/gm, '<h4>$1</h4>')
+    .replace(/^###\s+(.+)$/gm, '<h3>$1</h3>')
+    .replace(/^##\s+(.+)$/gm, '<h2>$1</h2>')
+    .replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+
+  // Blockquotes
+  res = res.replace(/^&gt;\s+(.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // Tables
+  res = formatTables(res);
+
+  // Unordered lists
+  res = res.replace(/((?:^(?:[-*]|\&bull;)\s+[^\n]+\r?\n?)+)/gm, (match) => {
+    const items = match.trim().split(/\r?\n/).map(line => {
+      const clean = line.replace(/^(?:[-*]|\&bull;)\s+/, '');
+      return `<li>${formatInline(clean)}</li>`;
+    });
+    return `<ul>${items.join('')}</ul>`;
+  });
+
+  // Ordered lists
+  res = res.replace(/((?:^\d+\.\s+[^\n]+\r?\n?)+)/gm, (match) => {
+    const items = match.trim().split(/\r?\n/).map(line => {
+      const clean = line.replace(/^\d+\.\s+/, '');
+      return `<li>${formatInline(clean)}</li>`;
+    });
+    return `<ol>${items.join('')}</ol>`;
+  });
+
+  // Inline formatting
+  res = formatInline(res);
+
+  // Line breaks outside tags
+  return res.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
 }
 
 /**
@@ -33,7 +120,7 @@ export function formatSimpleMarkdown(text) {
     return `<pre><code class="language-${lang}">${code.trim()}</code></pre>`;
   });
 
-  return formatInlineAndBreaks(withCodeBlocks);
+  return formatBlockElements(withCodeBlocks);
 }
 
 /**
@@ -54,13 +141,15 @@ export function formatRichMarkdown(text) {
 
   const escaped = escapeHtml(normalized);
 
-  // Fenced code blocks with language badge, copy button, and HTML preview if applicable
-  const withCode = escaped.replace(/```([a-z0-9_-]*)\n([\s\S]*?)```/gi, (_, lang, code) => {
+  // Stash fenced code blocks in placeholders so markdown rules don't mutate code contents
+  const codeBlocks = [];
+  const withCodePlaceholders = escaped.replace(/```([a-z0-9_-]*)\n([\s\S]*?)```/gi, (_, lang, code) => {
     const rawCode = code.trim();
     const isHtml = (lang || '').toLowerCase() === 'html'
       || rawCode.startsWith('&lt;!DOCTYPE')
       || rawCode.startsWith('&lt;html');
-    return `
+    const index = codeBlocks.length;
+    codeBlocks.push(`
       <div class="code-block-wrapper">
         <div class="code-block-header">
           <span class="code-lang-tag">${escapeHtml(lang || 'code')}</span>
@@ -77,10 +166,19 @@ export function formatRichMarkdown(text) {
         </div>
         <pre><code class="language-${lang}">${rawCode}</code></pre>
       </div>
-    `;
+    `);
+    return `%%%PECUTCODEBLOCK${index}%%%`;
   });
 
-  return formatInlineAndBreaks(withCode);
+  // Apply rich markdown parsing (headings, blockquotes, tables, lists, bold, italics, links)
+  let formatted = formatBlockElements(withCodePlaceholders);
+
+  // Restore code blocks
+  formatted = formatted.replace(/%%%PECUTCODEBLOCK(\d+)%%%/g, (_, idx) => {
+    return codeBlocks[parseInt(idx, 10)] || '';
+  });
+
+  return formatted;
 }
 
 /**
