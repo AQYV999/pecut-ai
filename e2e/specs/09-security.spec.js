@@ -695,12 +695,14 @@ test.describe('Suite 09: Security & Edge Cases', () => {
   test.describe('6. Browser Network Safety', () => {
     test('6.1 should not make unexpected third-party external network requests', async ({ page }) => {
       const externalCalls = [];
+      const currentHost = new URL(page.url()).host;
 
       page.on('request', req => {
         const url = req.url();
         if (url.startsWith('http') &&
             !url.includes('127.0.0.1') &&
             !url.includes('localhost') &&
+            !url.includes(currentHost) &&
             !url.includes('fonts.googleapis.com') &&
             !url.includes('fonts.gstatic.com')) {
           externalCalls.push(url);

@@ -12,7 +12,7 @@ import { clearAllStorage, setupCleanTestState, captureStorageState, verifyNoCred
  */
 export const test = base.extend({
   // Clean page with request counter installed
-  page: async ({ page }, use) => {
+  page: async ({ page, baseURL }, use) => {
     // Install request counter on every page
     await installRequestCounter(page);
     await resetAIRequestCount(page);
