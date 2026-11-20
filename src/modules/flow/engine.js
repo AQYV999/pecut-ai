@@ -194,7 +194,9 @@ export async function executeWorkflowPipeline(options = {}) {
       model: stepConfig.model,
       temperature: stepConfig.temperature,
       maxTokens: stepConfig.maxTokens,
-      interpolatedPrompt: interpResult.prompt
+      interpolatedPrompt: interpResult.prompt,
+      autoAppended: interpResult.autoAppended,
+      usedPlaceholders: interpResult.usedPlaceholders
     };
 
     if (typeof callbacks.onStepStart === 'function') {

@@ -272,3 +272,96 @@ test('1.3.7: DEFAULT_FLOWS[0] executes with Step 2 deterministically interpolati
   assert.ok(executedCalls[2].messages[0].content.includes('Output of Step 2'));
   assert.ok(!executedCalls[2].messages[0].content.includes('[PREVIOUS STEP OUTPUT]'), 'Step 3 should interpolate {{prev}} cleanly without auto-append fallback');
 });
+
+test('1.3.8: Custom workflow with Step 2 using {{prev}} replaces placeholder before dispatch with autoAppended=false', async () => {
+  const customFlow = normalizeFlowV2({
+    id: 'flow_custom_bookstore',
+    title: 'Bookstore Slogan Generator',
+    category: 'Creative',
+    description: 'Generates creative bookstore names and paired slogans',
+    isBuiltIn: false,
+    steps: [
+      {
+        id: 'step_1_ideas',
+        title: 'Nama Toko Buku',
+        instruction: 'Tuliskan 2 ide nama toko buku unik dan modern.'
+      },
+      {
+        id: 'step_2_slogan',
+        title: 'Slogan Toko Buku',
+        instruction: 'Buat satu slogan pendek dan menarik untuk toko buku berdasarkan ide berikut: {{prev}}'
+      }
+    ]
+  });
+
+  const step1Output = '1. Lentera Kata - Ruang literasi hangat dengan kurasi buku independen.\n2. Ruang Aksara - Kafe buku modern bertema minimalis urban.';
+  const step2Output = '"Lentera Kata: Menyalakan Imajinasi di Setiap Sudut Ruang."';
+
+  const dispatchedPayloads = [];
+  const telemetryStartInfos = [];
+
+  const mockTransport = async (options) => {
+    dispatchedPayloads.push(options);
+    if (dispatchedPayloads.length === 1) {
+      return {
+        text: step1Output,
+        usage: { promptTokens: 25, completionTokens: 40, totalTokens: 65 }
+      };
+    }
+    return {
+      text: step2Output,
+      usage: { promptTokens: 60, completionTokens: 30, totalTokens: 90 }
+    };
+  };
+
+  const runResult = await executeWorkflowPipeline({
+    flow: customFlow,
+    input: 'Toko buku indie di Yogyakarta untuk generasi muda',
+    activeConfig: { provider: 'openrouter', apiKey: 'sk-test-key', model: 'meta-llama/llama-3.3-70b-instruct:free' },
+    transportFn: mockTransport,
+    callbacks: {
+      onStepStart: (info) => telemetryStartInfos.push(info)
+    }
+  });
+
+  // 1. Pipeline success and output verification
+  assert.equal(runResult.success, true);
+  assert.equal(runResult.results.length, 2);
+  assert.equal(runResult.results[0].output, step1Output);
+  assert.equal(runResult.results[1].output, step2Output);
+
+  // 2. Dispatched calls count
+  assert.equal(dispatchedPayloads.length, 2);
+
+  // 3. Step 1: produces output and falls back to auto-append input since no placeholders exist
+  const step1UserMessage = dispatchedPayloads[0].messages[0].content;
+  assert.ok(step1UserMessage.includes('Tuliskan 2 ide nama toko buku unik dan modern.'));
+  assert.ok(step1UserMessage.includes('Toko buku indie di Yogyakarta untuk generasi muda'));
+  assert.equal(telemetryStartInfos[0].autoAppended, true);
+
+  // 4. Step 2 payload audit before sending to transport
+  const step2UserMessage = dispatchedPayloads[1].messages[0].content;
+
+  // Step 2 receives the actual Step 1 output
+  assert.ok(step2UserMessage.includes('1. Lentera Kata - Ruang literasi hangat dengan kurasi buku independen.'));
+  assert.ok(step2UserMessage.includes('2. Ruang Aksara - Kafe buku modern bertema minimalis urban.'));
+
+  // Placeholder {{prev}} is replaced before request is dispatched
+  assert.equal(
+    step2UserMessage,
+    `Buat satu slogan pendek dan menarik untuk toko buku berdasarkan ide berikut: ${step1Output}`
+  );
+
+  // No literal {{prev}} or variant exists in dispatched payload
+  assert.ok(!step2UserMessage.includes('{{prev}}'), 'Step 2 payload must not contain literal {{prev}}');
+  assert.ok(!step2UserMessage.includes('{{PREV}}'), 'Step 2 payload must not contain uppercase {{PREV}}');
+  assert.ok(!step2UserMessage.includes('{{previous}}'), 'Step 2 payload must not contain alias {{previous}}');
+
+  // autoAppended is false
+  assert.equal(telemetryStartInfos[1].autoAppended, false, 'autoAppended must be false when template variable is present');
+  assert.deepEqual(telemetryStartInfos[1].usedPlaceholders, ['prev']);
+
+  // No fallback headers appended
+  assert.ok(!step2UserMessage.includes('[PREVIOUS STEP OUTPUT]'), 'Must not contain [PREVIOUS STEP OUTPUT] fallback');
+  assert.ok(!step2UserMessage.includes('[WORKFLOW INPUT]'), 'Must not contain [WORKFLOW INPUT] fallback');
+});

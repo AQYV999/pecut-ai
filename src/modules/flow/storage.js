@@ -17,6 +17,29 @@ import {
 export const FLOWS_STORAGE_KEY = 'pecut_flows';
 
 /**
+ * Exact unmodified step instructions from legacy starter workflows (Pecut AI 1.8 / pre-1.9-fix).
+ * Used for conservative migration: only steps that match these exact legacy strings are upgraded,
+ * guaranteeing that user-edited steps or customized workflows are never overwritten.
+ */
+export const LEGACY_STARTER_INSTRUCTIONS = {
+  'flow-content': [
+    'Generate 3 high-impact angles or hooks for the topic. Contrast common misconceptions with fresh perspectives.',
+    'Using the best angle from Step 1, design a detailed 4-section outline with key talking points and bullet explanations.',
+    'Transform the outline from Step 2 into a crisp, engaging social media post with a compelling opening line and clear CTA.'
+  ],
+  'flow-code': [
+    'Define the architecture, data schemas, interface contracts, and key edge cases for the given requirement.',
+    'Write the complete, clean, modular implementation based on the specification from Step 1 with clear comments.',
+    'Draft exhaustive unit and integration test scenarios covering normal operation, failure modes, and error recovery.'
+  ],
+  'flow-study': [
+    'Break down the core topic into its 3 fundamental principles without using confusing jargon.',
+    'Construct an intuitive real-world analogy that illustrates how these principles function in practice.',
+    'Create 3 scenario-based assessment questions with detailed answer explanations to verify complete mastery.'
+  ]
+};
+
+/**
  * Creates canonical starter flows seeded from DEFAULT_FLOWS.
  * @returns {Array<Object>}
  */
@@ -38,16 +61,48 @@ export function loadFlows() {
         let needsResave = false;
         const starterMap = new Map(getStarterFlowsV2().map(f => [f.id, f]));
         const normalized = parsed.map(f => {
-          if (f.schemaVersion !== FLOW_SCHEMA_VERSION || !Array.isArray(f.steps) || (f.steps[0] && !f.steps[0].id)) {
+          let flowObj = f;
+          if (flowObj.schemaVersion !== FLOW_SCHEMA_VERSION || !Array.isArray(flowObj.steps) || (flowObj.steps[0] && !flowObj.steps[0].id)) {
             needsResave = true;
-            return migrateLegacyFlowToV2(f);
+            flowObj = migrateLegacyFlowToV2(flowObj);
           }
-          // Seamlessly refresh built-in flows if they still carry legacy instructions without {{prev}}
-          if (starterMap.has(f.id) && f.isBuiltIn && Array.isArray(f.steps) && f.steps[1] && !f.steps[1].instruction.includes('{{prev}}')) {
-            needsResave = true;
-            return starterMap.get(f.id);
+
+          // Conservative migration: Only update built-in starter flows for steps that still carry
+          // the exact un-customized legacy default instruction, preserving all user customizations,
+          // custom steps, custom titles, custom models, and edited prompts.
+          if (flowObj.isBuiltIn && starterMap.has(flowObj.id) && Array.isArray(flowObj.steps)) {
+            const canonicalStarter = starterMap.get(flowObj.id);
+            const legacyDefaults = LEGACY_STARTER_INSTRUCTIONS[flowObj.id];
+
+            if (legacyDefaults && canonicalStarter) {
+              let updatedSteps = false;
+              const migratedSteps = flowObj.steps.map((step, idx) => {
+                const legacyText = legacyDefaults[idx];
+                const canonicalStep = canonicalStarter.steps[idx];
+
+                // Only upgrade if this step instruction matches the exact legacy default instruction
+                if (legacyText && canonicalStep && typeof step.instruction === 'string' && step.instruction.trim() === legacyText.trim()) {
+                  updatedSteps = true;
+                  return {
+                    ...step,
+                    instruction: canonicalStep.instruction
+                  };
+                }
+                // Otherwise, preserve user's customized instruction and step configuration
+                return step;
+              });
+
+              if (updatedSteps) {
+                needsResave = true;
+                flowObj = {
+                  ...flowObj,
+                  steps: migratedSteps
+                };
+              }
+            }
           }
-          return normalizeFlowV2(f);
+
+          return normalizeFlowV2(flowObj);
         });
 
         if (needsResave) {
