@@ -36,10 +36,16 @@ export function loadFlows() {
       if (Array.isArray(parsed) && parsed.length > 0) {
         // Normalize each item to ensure v2 compliance
         let needsResave = false;
+        const starterMap = new Map(getStarterFlowsV2().map(f => [f.id, f]));
         const normalized = parsed.map(f => {
           if (f.schemaVersion !== FLOW_SCHEMA_VERSION || !Array.isArray(f.steps) || (f.steps[0] && !f.steps[0].id)) {
             needsResave = true;
             return migrateLegacyFlowToV2(f);
+          }
+          // Seamlessly refresh built-in flows if they still carry legacy instructions without {{prev}}
+          if (starterMap.has(f.id) && f.isBuiltIn && Array.isArray(f.steps) && f.steps[1] && !f.steps[1].instruction.includes('{{prev}}')) {
+            needsResave = true;
+            return starterMap.get(f.id);
           }
           return normalizeFlowV2(f);
         });

@@ -96,3 +96,19 @@ test('1.2.6: Explicit auto-append behavior when NO template variables are presen
   assert.ok(resStep2.prompt.includes('\n\n[WORKFLOW INPUT]\nAuthentication Module'));
   assert.ok(resStep2.prompt.includes('\n\n[PREVIOUS STEP OUTPUT]\nexport function login() { ... }'));
 });
+
+test('1.2.7: interpolateStepPrompt handles case-insensitive {{PREV}} and {{previous}} aliases', () => {
+  const context = {
+    input: 'Topic',
+    prev: 'Prior Step Results',
+    stepIndex: 1
+  };
+
+  const resUpper = interpolateStepPrompt('Analyze {{PREV}} thoroughly', context);
+  assert.equal(resUpper.autoAppended, false);
+  assert.equal(resUpper.prompt, 'Analyze Prior Step Results thoroughly');
+
+  const resPrevious = interpolateStepPrompt('Refine {{previous}} output', context);
+  assert.equal(resPrevious.autoAppended, false);
+  assert.equal(resPrevious.prompt, 'Refine Prior Step Results output');
+});

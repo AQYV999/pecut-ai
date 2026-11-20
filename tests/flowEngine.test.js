@@ -5,7 +5,8 @@ import {
   resolveContextProfilePrompt,
   executeWorkflowPipeline
 } from '../src/modules/flow/engine.js';
-import { normalizeFlowV2 } from '../src/modules/flow/schema.js';
+import { normalizeFlowV2, migrateLegacyFlowToV2 } from '../src/modules/flow/schema.js';
+import { DEFAULT_FLOWS } from '../src/data/flows.js';
 
 test('1.3.1: resolveStepExecutionConfig resolves inherit vs explicit provider override correctly', () => {
   const activeConfig = {
@@ -230,4 +231,44 @@ test('1.3.6: executeWorkflowPipeline supports resume execution starting from ste
 
   // Verify Step 2 received the pre-computed output
   assert.ok(executedSteps[0].messages[0].content.includes('Pre-computed Step 1 Output'));
+});
+
+test('1.3.7: DEFAULT_FLOWS[0] executes with Step 2 deterministically interpolating {{prev}} without fallback auto-append', async () => {
+  const flow = migrateLegacyFlowToV2(DEFAULT_FLOWS[0]);
+
+  const executedCalls = [];
+  const startInfos = [];
+  const mockTransport = async (options) => {
+    executedCalls.push(options);
+    const stepNum = executedCalls.length;
+    return {
+      text: `## Output of Step ${stepNum}\nKey insights from research.`,
+      usage: { promptTokens: 50, completionTokens: 50, totalTokens: 100 }
+    };
+  };
+
+  const runResult = await executeWorkflowPipeline({
+    flow,
+    input: 'Architecting Resilient Serverless AI Proxies in 2026',
+    activeConfig: { provider: 'openrouter', apiKey: 'test-key', model: 'meta-llama/llama-3.3-70b-instruct:free' },
+    transportFn: mockTransport,
+    callbacks: {
+      onStepStart: (info) => startInfos.push(info)
+    }
+  });
+
+  assert.equal(runResult.success, true);
+  assert.equal(executedCalls.length, 3);
+
+  // Step 1: verify {{input}} interpolation
+  assert.ok(executedCalls[0].messages[0].content.includes('Architecting Resilient Serverless AI Proxies in 2026'));
+  assert.ok(!executedCalls[0].messages[0].content.includes('[WORKFLOW INPUT]'), 'Step 1 should use {{input}} template tag directly, not auto-append fallback');
+
+  // Step 2: verify {{prev}} interpolation
+  assert.ok(executedCalls[1].messages[0].content.includes('Output of Step 1'));
+  assert.ok(!executedCalls[1].messages[0].content.includes('[PREVIOUS STEP OUTPUT]'), 'Step 2 should interpolate {{prev}} cleanly without auto-append fallback');
+
+  // Step 3: verify {{prev}} chaining from Step 2
+  assert.ok(executedCalls[2].messages[0].content.includes('Output of Step 2'));
+  assert.ok(!executedCalls[2].messages[0].content.includes('[PREVIOUS STEP OUTPUT]'), 'Step 3 should interpolate {{prev}} cleanly without auto-append fallback');
 });

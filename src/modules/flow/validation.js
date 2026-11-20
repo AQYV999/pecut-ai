@@ -32,18 +32,20 @@ export function validateStepReferences(steps = []) {
 
     const placeholders = extractPlaceholders(step.instruction);
     placeholders.forEach(tag => {
-      // 1. Check {{input}} -> Always valid
-      if (tag === 'input') return;
+      const lowerTag = (tag || '').toLowerCase();
 
-      // 2. Check {{prev}}
-      if (tag === 'prev') {
+      // 1. Check {{input}} -> Always valid
+      if (lowerTag === 'input') return;
+
+      // 2. Check {{prev}} or {{previous}}
+      if (lowerTag === 'prev' || lowerTag === 'previous') {
         if (stepIndex === 0) {
           errors.push({
             stepIndex,
             stepId: step.id || `step_${stepIndex + 1}`,
             placeholder: tag,
             type: 'invalid_prev',
-            message: `Step 1 cannot reference {{prev}} because it has no preceding step.`
+            message: `Step 1 cannot reference {{${tag}}} because it has no preceding step.`
           });
         }
         return;
@@ -192,8 +194,12 @@ export function computeInvalidatedSteps({ oldSteps = [], newSteps = [], currentR
       let dependsOnDirty = false;
       let dirtyReason = '';
 
-      // Check {{prev}}
-      if (placeholders.includes('prev') && idx > 0) {
+      // Check {{prev}} or {{previous}}
+      const hasPrevRef = placeholders.some(p => {
+        const lp = (p || '').toLowerCase();
+        return lp === 'prev' || lp === 'previous';
+      });
+      if (hasPrevRef && idx > 0) {
         const prevStep = newSteps[idx - 1];
         if (prevStep && allDirtyIds.has(prevStep.id)) {
           dependsOnDirty = true;

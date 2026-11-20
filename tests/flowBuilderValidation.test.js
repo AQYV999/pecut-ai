@@ -32,6 +32,19 @@ test('2.1.1: validateStepReferences detects {{prev}} error on first step', () =>
   assert.equal(result.errors.length, 1);
   assert.equal(result.errors[0].type, 'invalid_prev');
   assert.equal(result.errors[0].stepIndex, 0);
+
+  // Case-insensitive & alias check: {{PREV}} and {{previous}} on step 1 must also fail
+  const upperResult = validateStepReferences([
+    { id: 's1', title: 'Step 1', instruction: 'Start with {{PREV}}' }
+  ]);
+  assert.equal(upperResult.isValid, false);
+  assert.equal(upperResult.errors[0].type, 'invalid_prev');
+
+  const aliasResult = validateStepReferences([
+    { id: 's1', title: 'Step 1', instruction: 'Start with {{previous}}' }
+  ]);
+  assert.equal(aliasResult.isValid, false);
+  assert.equal(aliasResult.errors[0].type, 'invalid_prev');
 });
 
 test('2.1.2: validateStepReferences detects forward reference and self-reference on {{stepN}}', () => {
@@ -99,6 +112,19 @@ test('2.1.4: computeInvalidatedSteps marks downstream steps when an upstream ste
   assert.equal(inv2.hasInvalidations, true);
   assert.ok(inv2.invalidatedStepIds.includes('s2'));
   assert.ok(inv2.invalidatedStepIds.includes('s3'));
+
+  // Test downstream invalidation via {{PREV}} and {{previous}}
+  const oldStepsUpper = [
+    { id: 's1', title: 'Step 1', instruction: 'Do 1' },
+    { id: 's2', title: 'Step 2', instruction: 'Do 2 with {{PREV}}' }
+  ];
+  const newStepsUpper = [
+    { id: 's1', title: 'Step 1 Modified', instruction: 'Do 1 Modified' },
+    { id: 's2', title: 'Step 2', instruction: 'Do 2 with {{PREV}}' }
+  ];
+  const invUpper = computeInvalidatedSteps({ oldSteps: oldStepsUpper, newSteps: newStepsUpper });
+  assert.equal(invUpper.hasInvalidations, true);
+  assert.ok(invUpper.invalidatedStepIds.includes('s2'), 'Downstream step referencing {{PREV}} must be invalidated');
 });
 
 test('2.1.5: saveFlowRun enforces MAX_TOTAL_RUN_OUTPUT_CHARS across all steps', () => {
