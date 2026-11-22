@@ -4,6 +4,7 @@
  */
 
 import { initNavigation, updateOverviewMetrics } from './modules/navigation.js';
+import './styles/tailwind.css';
 import { initPromptBuilder } from './modules/builder.js';
 import { initOptimizer } from './modules/optimizer.js';
 import { initLibrary } from './modules/library.js';

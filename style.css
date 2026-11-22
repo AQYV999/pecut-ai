@@ -1,7 +1,8 @@
 /*
  * Pecut AI — Stylesheet Entry Point
- * Imports modular stylesheets in exact cascade order.
+ * Imports Tailwind CSS followed by modular overrides and component styles.
  */
+@import './src/styles/tailwind.css';
 @import './src/styles/base.css';
 @import './src/styles/layout.css';
 @import './src/styles/views.css';
