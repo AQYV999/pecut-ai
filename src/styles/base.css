@@ -1,59 +1,75 @@
 :root {
-  /* Non-color design tokens (theme-independent) */
+  /* Artcraft Industrial Tokens: Sharp edges (0px to max 2px), precision hairline borders */
   --font-sans: 'Lato', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --sidebar-width: 260px;
-  --transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  
+  /* Sharp corners - No bubbly/rounded slop */
+  --radius-sm: 0px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --sidebar-width: 250px;
+  --transition: all 0.16s cubic-bezier(0.2, 0, 0, 1);
 
-  /* Status colors (shared across themes) */
+  /* Status */
   --success: #10b981;
   --danger: #ef4444;
   --success-border: rgba(16, 185, 129, 0.4);
   --danger-border: rgba(239, 68, 68, 0.4);
 }
 
-/* Dark theme (Default: Dark Slate/Navy aesthetic - anti-generic AI) */
+/* Dark Industrial Theme (Artcraft Dark Blueprint Palette) */
 [data-theme="dark"] {
-  --bg-color: #080b11;
-  --surface-color: #0f1422;
-  --surface-hover: #171f33;
-  --surface-border: #1c263d;
-  --surface-border-subtle: #141c2d;
-  --text-primary: #e6edf8;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
+  --bg-color: #0e1014;
+  --bg-sunken: #090a0d;
+  --surface-color: #12141a;
+  --surface-hover: #181b24;
+  --surface-border: rgba(242, 241, 238, 0.13);
+  --surface-border-subtle: rgba(242, 241, 238, 0.07);
+  --surface-border-strong: rgba(242, 241, 238, 0.28);
+  
+  --text-primary: #f2f1ee;
+  --text-secondary: rgba(242, 241, 238, 0.68);
+  --text-tertiary: rgba(242, 241, 238, 0.42);
+  
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
-  --accent-subtle: rgba(37, 99, 235, 0.15);
-  --accent-glow: rgba(29, 78, 216, 0.28);
-  --topbar-bg: rgba(8, 11, 17, 0.88);
-  --shadow-modal: 0 25px 50px rgba(0, 0, 0, 0.7);
-  --shadow-toast: 0 10px 25px rgba(0, 0, 0, 0.6);
-  --shadow-card-hover: 0 10px 28px rgba(7, 10, 20, 0.65);
+  --accent-subtle: rgba(37, 99, 235, 0.16);
+  --accent-glow: rgba(37, 99, 235, 0.32);
+  --accent-ink: #74aaff;
+
+  --topbar-bg: rgba(14, 16, 20, 0.94);
+  --shadow-modal: 0 16px 40px rgba(0, 0, 0, 0.85);
+  --shadow-toast: 0 8px 24px rgba(0, 0, 0, 0.7);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.5);
+  
   color-scheme: dark;
 }
 
-/* Light theme with subtle Navy accents */
+/* Light Industrial Theme (Artcraft Craft Paper Palette) */
 [data-theme="light"] {
-  --bg-color: #f4f6fa;
-  --surface-color: #ffffff;
-  --surface-hover: #eaf0f9;
-  --surface-border: #d4dceb;
-  --surface-border-subtle: #e3e9f4;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-tertiary: #64748b;
-  --accent: #1e40af;
-  --accent-hover: #1d357d;
-  --accent-subtle: rgba(30, 64, 175, 0.08);
-  --accent-glow: rgba(30, 64, 175, 0.18);
-  --topbar-bg: rgba(244, 246, 250, 0.88);
-  --shadow-modal: 0 25px 50px rgba(15, 23, 42, 0.15);
-  --shadow-toast: 0 10px 25px rgba(15, 23, 42, 0.12);
-  --shadow-card-hover: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --bg-color: #f2f1ee;
+  --bg-sunken: #e8e7e3;
+  --surface-color: #faf9f7;
+  --surface-hover: #eae9e4;
+  --surface-border: rgba(16, 16, 20, 0.14);
+  --surface-border-subtle: rgba(16, 16, 20, 0.08);
+  --surface-border-strong: rgba(16, 16, 20, 0.35);
+
+  --text-primary: #101014;
+  --text-secondary: rgba(16, 16, 20, 0.72);
+  --text-tertiary: rgba(16, 16, 20, 0.48);
+
+  --accent: #1d4ed8;
+  --accent-hover: #1e3a8a;
+  --accent-subtle: rgba(29, 78, 216, 0.1);
+  --accent-glow: rgba(29, 78, 216, 0.2);
+  --accent-ink: #1e40af;
+
+  --topbar-bg: rgba(242, 241, 238, 0.94);
+  --shadow-modal: 0 16px 40px rgba(0, 0, 0, 0.14);
+  --shadow-toast: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.08);
+
   color-scheme: light;
 }
 
@@ -67,46 +83,25 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Skip link for keyboard users */
-.skip-link {
-  position: absolute;
-  left: -9999px;
-  top: 0;
-  z-index: 9999;
-  padding: 0.75rem 1.25rem;
-  background: var(--accent);
-  color: #fff;
-  border-radius: var(--radius-sm);
-  font-weight: 700;
-  font-size: 0.9rem;
-  text-decoration: none;
-}
-.skip-link:focus {
-  left: 1rem;
-  top: 1rem;
-}
-
-/* Visible keyboard focus for all interactive elements */
+/* Keyboard accessibility */
 :focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* Prefer reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+  outline: 1.5px solid var(--accent);
+  outline-offset: 1px;
 }
 
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-color);
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Technical Blueprint Grid Subtle Overlay for Canvas & Workspace */
+.blueprint-grid {
+  background-image: 
+    linear-gradient(to right, var(--surface-border-subtle) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--surface-border-subtle) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
