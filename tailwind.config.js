@@ -19,34 +19,34 @@ export default {
       },
       colors: {
         bg: {
-          DEFAULT: '#101115',
-          raised: '#15171d',
-          sunken: '#0b0c0e',
+          DEFAULT: '#0c0e12',
+          raised: '#111318',
+          sunken: '#08090c',
         },
         surface: {
-          DEFAULT: '#13151b',
-          hover: '#191c24',
-          border: 'rgba(242, 241, 238, 0.12)',
-          'border-strong': 'rgba(242, 241, 238, 0.28)',
-          'border-subtle': 'rgba(242, 241, 238, 0.07)',
+          DEFAULT: '#111318',
+          hover: '#161820',
+          border: 'rgba(242, 241, 238, 0.11)',
+          'border-strong': 'rgba(242, 241, 238, 0.25)',
+          'border-subtle': 'rgba(242, 241, 238, 0.06)',
         },
         ink: {
           DEFAULT: '#ecebe8',
           strong: '#ffffff',
-          muted: 'rgba(236, 235, 232, 0.62)',
-          faint: 'rgba(236, 235, 232, 0.38)',
+          muted: 'rgba(236, 235, 232, 0.68)',
+          faint: 'rgba(236, 235, 232, 0.42)',
         },
         line: {
-          DEFAULT: 'rgba(242, 241, 238, 0.12)',
-          strong: 'rgba(242, 241, 238, 0.28)',
-          subtle: 'rgba(242, 241, 238, 0.07)',
+          DEFAULT: 'rgba(242, 241, 238, 0.11)',
+          strong: 'rgba(242, 241, 238, 0.25)',
+          subtle: 'rgba(242, 241, 238, 0.06)',
         },
         accent: {
-          DEFAULT: '#2563eb', // navy/cobalt precision
-          hover: '#1d4ed8',
-          ink: '#74aaff',
-          subtle: 'rgba(37, 99, 235, 0.14)',
-          glow: 'rgba(37, 99, 235, 0.28)',
+          DEFAULT: '#173878', // Deep Industrial Navy
+          hover: '#122c60',
+          ink: '#5b8ae8',
+          subtle: 'rgba(23, 56, 120, 0.22)',
+          glow: 'rgba(23, 56, 120, 0.35)',
         },
       },
       fontFamily: {

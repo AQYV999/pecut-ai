@@ -17,27 +17,28 @@
   --danger-border: rgba(239, 68, 68, 0.4);
 }
 
-/* Dark Industrial Theme (Artcraft Dark Blueprint Palette) */
+/* Dark Industrial Theme (Artcraft Dark Blueprint Palette with Deep Navy Accent) */
 [data-theme="dark"] {
-  --bg-color: #0e1014;
-  --bg-sunken: #090a0d;
-  --surface-color: #12141a;
-  --surface-hover: #181b24;
-  --surface-border: rgba(242, 241, 238, 0.13);
-  --surface-border-subtle: rgba(242, 241, 238, 0.07);
-  --surface-border-strong: rgba(242, 241, 238, 0.28);
+  --bg-color: #0c0e12;
+  --bg-sunken: #08090c;
+  --surface-color: #111318;
+  --surface-hover: #161820;
+  --surface-border: rgba(242, 241, 238, 0.11);
+  --surface-border-subtle: rgba(242, 241, 238, 0.06);
+  --surface-border-strong: rgba(242, 241, 238, 0.25);
   
   --text-primary: #f2f1ee;
   --text-secondary: rgba(242, 241, 238, 0.68);
   --text-tertiary: rgba(242, 241, 238, 0.42);
   
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --accent-subtle: rgba(37, 99, 235, 0.16);
-  --accent-glow: rgba(37, 99, 235, 0.32);
-  --accent-ink: #74aaff;
+  /* Deep Navy Accent (Lebih gelap, tenang, elegan) */
+  --accent: #173878;
+  --accent-hover: #122c60;
+  --accent-subtle: rgba(23, 56, 120, 0.22);
+  --accent-glow: rgba(23, 56, 120, 0.35);
+  --accent-ink: #5b8ae8;
 
-  --topbar-bg: rgba(14, 16, 20, 0.94);
+  --topbar-bg: rgba(12, 14, 18, 0.94);
   --shadow-modal: 0 16px 40px rgba(0, 0, 0, 0.85);
   --shadow-toast: 0 8px 24px rgba(0, 0, 0, 0.7);
   --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -59,15 +60,15 @@
   --text-secondary: rgba(16, 16, 20, 0.72);
   --text-tertiary: rgba(16, 16, 20, 0.48);
 
-  --accent: #1d4ed8;
-  --accent-hover: #1e3a8a;
-  --accent-subtle: rgba(29, 78, 216, 0.1);
-  --accent-glow: rgba(29, 78, 216, 0.2);
-  --accent-ink: #1e40af;
+  --accent: #173878;
+  --accent-hover: #122c60;
+  --accent-subtle: rgba(23, 56, 120, 0.12);
+  --accent-glow: rgba(23, 56, 120, 0.25);
+  --accent-ink: #173878;
 
   --topbar-bg: rgba(242, 241, 238, 0.94);
   --shadow-modal: 0 16px 40px rgba(0, 0, 0, 0.14);
-  --shadow-toast: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --shadow-toast: 0 10px 25px rgba(0, 0, 0, 0.1);
   --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.08);
 
   color-scheme: light;
@@ -85,7 +86,7 @@ html {
 
 /* Keyboard accessibility */
 :focus-visible {
-  outline: 1.5px solid var(--accent);
+  outline: 1.5px solid var(--accent-ink);
   outline-offset: 1px;
 }
 

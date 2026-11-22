@@ -233,10 +233,12 @@
   word-break: break-word;
 }
 
+/* User Bubble: Deep Dark Navy dengan border halus, bukan biru terang menyilaukan */
 .user-bubble {
-  background: var(--accent);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #14274c;
+  color: #f2f1ee;
+  border: 1px solid rgba(91, 138, 232, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .assistant-bubble {
