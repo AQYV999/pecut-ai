@@ -112,8 +112,9 @@ export function renderActiveChatSession() {
     if (!isUser && msg.isReasoningOnly) {
       bodyHtml = `
         <div class="chat-truncated-note">
-          <span>⚠️ Model menghabiskan batas token di proses berpikir sebelum menulis hasil akhir.</span>
+          <span>⚠️ Model kehabisan batas token di proses berpikir. Klik tombol lanjutkan di bawah untuk mencetak kode langsung.</span>
         </div>
+        ${msg.content ? `<div class="chat-bubble-content">${formatRichMarkdown(msg.content)}</div>` : ''}
       `;
     } else {
       bodyHtml = `<div class="chat-bubble-content">${formatRichMarkdown(msg.content)}</div>`;
@@ -168,7 +169,7 @@ export function renderActiveChatSession() {
     btn.addEventListener('click', () => {
       const wasReasoningOnly = btn.getAttribute('data-reasoning-only') === '1';
       const prompt = wasReasoningOnly
-        ? 'Langsung tuliskan hasil akhir / kode lengkapnya sekarang tanpa panjang lebar berpikir.'
+        ? 'Tuliskan dan cetak langsung kode HTML lengkapnya sekarang dari <!DOCTYPE html> sampai </html>. DILARANG berpikir atau menggunakan tag <think>. Langsung keluarkan kodenya.'
         : 'Lanjutkan persis dari karakter terakhir yang terpotong sebelumnya tanpa mengulang dari awal.';
       sendGeneralChatMessage(prompt);
     });
@@ -276,6 +277,7 @@ export async function sendGeneralChatMessage(overrideText = null) {
 
     let renderPending = false;
     let latestStreamData = null;
+    let lastRenderTimestamp = 0;
 
     const flushStreamUI = () => {
       if (!latestStreamData || !liveEl.isConnected) return;
@@ -283,15 +285,32 @@ export async function sendGeneralChatMessage(overrideText = null) {
       const thinkingContainer = liveEl.querySelector('.chat-live-thinking');
       const contentContainer = liveEl.querySelector('.chat-live-content');
 
+      // 1. Smooth thinking box update without destroying the DOM elements on every frame
       if (thinkingContainer && reasoning) {
-        thinkingContainer.innerHTML = renderThinkingBox(reasoning);
+        let detailsBox = thinkingContainer.querySelector('.thinking-box');
+        if (!detailsBox) {
+          thinkingContainer.innerHTML = renderThinkingBox(reasoning);
+        } else {
+          const bodyEl = detailsBox.querySelector('.thinking-box-body');
+          const summaryEl = detailsBox.querySelector('summary');
+          if (bodyEl) {
+            bodyEl.innerHTML = escapeHtml(reasoning.trim()).replace(/\n/g, '<br>');
+          }
+          if (summaryEl) {
+            const wordCount = reasoning.trim().split(/\s+/).length;
+            summaryEl.textContent = `💭 Thinking (${wordCount} kata)`;
+          }
+        }
       }
+
+      // 2. Smooth content update
       if (contentContainer && text) {
         contentContainer.innerHTML = formatRichMarkdown(text);
       }
 
+      // 3. Smooth follow scroll
       if (stream) {
-        const isNearBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 150;
+        const isNearBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 220;
         if (isNearBottom) {
           stream.scrollTop = stream.scrollHeight;
         }
@@ -300,16 +319,37 @@ export async function sendGeneralChatMessage(overrideText = null) {
 
     const onChunk = (chunkData) => {
       latestStreamData = chunkData;
+      const now = performance.now();
       if (!renderPending) {
-        renderPending = true;
-        if (typeof requestAnimationFrame === 'function') {
-          requestAnimationFrame(() => {
+        const timeSinceLast = now - lastRenderTimestamp;
+        if (timeSinceLast >= 35) {
+          renderPending = true;
+          if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => {
+              renderPending = false;
+              lastRenderTimestamp = performance.now();
+              flushStreamUI();
+            });
+          } else {
             renderPending = false;
+            lastRenderTimestamp = now;
             flushStreamUI();
-          });
+          }
         } else {
-          renderPending = false;
-          flushStreamUI();
+          renderPending = true;
+          setTimeout(() => {
+            if (typeof requestAnimationFrame === 'function') {
+              requestAnimationFrame(() => {
+                renderPending = false;
+                lastRenderTimestamp = performance.now();
+                flushStreamUI();
+              });
+            } else {
+              renderPending = false;
+              lastRenderTimestamp = performance.now();
+              flushStreamUI();
+            }
+          }, 35 - timeSinceLast);
         }
       }
     };
@@ -327,7 +367,7 @@ export async function sendGeneralChatMessage(overrideText = null) {
     const assistantMsg = {
       id: 'msg_' + Date.now(),
       role: 'assistant',
-      content: response.isReasoningOnly ? '' : response.text,
+      content: response.text || response.reasoning || '',
       reasoning: response.reasoning || '',
       truncated: Boolean(response.truncated),
       isReasoningOnly: Boolean(response.isReasoningOnly),

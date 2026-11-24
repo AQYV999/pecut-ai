@@ -311,6 +311,17 @@ export async function completeChat(options = {}) {
         content = cleaned.trim();
       }
 
+      // Check if reasoning contains unclosed code (e.g. model output <!DOCTYPE or ``` without closing </think>)
+      if (reasoning) {
+        const codeStart = reasoning.search(/(<!DOCTYPE|<html|```html|```[a-z]*\n)/i);
+        if (codeStart !== -1) {
+          const thoughtPart = reasoning.slice(0, codeStart).trim();
+          const codePart = reasoning.slice(codeStart).trim();
+          reasoning = thoughtPart;
+          content = content ? `${content}\n${codePart}` : codePart;
+        }
+      }
+
       const hasDirectContent = typeof content === 'string' && content.trim().length > 0;
       let isReasoningOnly = false;
 
@@ -666,11 +677,20 @@ export async function streamChat(options = {}, onChunk = null) {
                 while (remaining.length > 0) {
                   if (inInlineThink) {
                     const closeIdx = remaining.indexOf('</think>');
+                    const codeStartIdx = remaining.search(/(<!DOCTYPE|<html|```html|```[a-z]*\n)/i);
+
                     if (closeIdx !== -1) {
                       const thinkPart = remaining.slice(0, closeIdx);
                       accumulatedReasoning += thinkPart;
                       reasoningDelta += thinkPart;
                       remaining = remaining.slice(closeIdx + 8);
+                      inInlineThink = false;
+                    } else if (codeStartIdx !== -1) {
+                      // Model omitted </think> and immediately started writing code/HTML
+                      const thinkPart = remaining.slice(0, codeStartIdx);
+                      accumulatedReasoning += thinkPart;
+                      reasoningDelta += thinkPart;
+                      remaining = remaining.slice(codeStartIdx);
                       inInlineThink = false;
                     } else {
                       accumulatedReasoning += remaining;
@@ -711,6 +731,17 @@ export async function streamChat(options = {}, onChunk = null) {
         }
       } finally {
         reader.releaseLock?.();
+      }
+
+      // Check if accumulatedReasoning contains unclosed code (e.g. model output <!DOCTYPE or ``` without closing </think>)
+      if (accumulatedReasoning) {
+        const codeStart = accumulatedReasoning.search(/(<!DOCTYPE|<html|```html|```[a-z]*\n)/i);
+        if (codeStart !== -1) {
+          const thoughtPart = accumulatedReasoning.slice(0, codeStart).trim();
+          const codePart = accumulatedReasoning.slice(codeStart).trim();
+          accumulatedReasoning = thoughtPart;
+          accumulatedText = accumulatedText ? `${accumulatedText}\n${codePart}` : codePart;
+        }
       }
 
       const hasContent = Boolean(accumulatedText.trim());

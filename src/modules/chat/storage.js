@@ -167,10 +167,12 @@ export function buildCleanHistoryPayload(messages = [], maxMessages = 10, maxCha
   if (!Array.isArray(messages)) return [];
 
   const valid = messages.filter(m => {
-    if (!m || !m.role || !m.content) return false;
+    if (!m || !m.role) return false;
+    const text = (m.content || m.reasoning || '').trim();
+    if (!text) return false;
     if (m.isError) return false;
     if (typeof m.id === 'string' && (m.id === 'msg_welcome' || m.id.startsWith('msg_err_'))) return false;
-    if (m.role === 'assistant' && m.content.startsWith('⚠️ **Gagal mendapatkan respon dari AI:**')) return false;
+    if (m.role === 'assistant' && text.startsWith('⚠️ **Gagal mendapatkan respon dari AI:**')) return false;
     return m.role === 'user' || m.role === 'assistant';
   });
 
@@ -181,7 +183,7 @@ export function buildCleanHistoryPayload(messages = [], maxMessages = 10, maxCha
   // Walk from newest to oldest so the latest user message is always preserved
   for (let i = recent.length - 1; i >= 0; i--) {
     const item = recent[i];
-    const text = String(item.content);
+    const text = String(item.content || item.reasoning || '');
     if (bounded.length > 0 && charTotal + text.length > maxChars) {
       break;
     }

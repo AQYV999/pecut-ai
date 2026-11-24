@@ -196,6 +196,7 @@ Directly fulfill the user's request:
 
     let renderPending = false;
     let latestStreamData = null;
+    let lastRenderTimestamp = 0;
 
     const flushCanvasStreamUI = () => {
       if (!latestStreamData || !liveEl.isConnected) return;
@@ -204,14 +205,28 @@ Directly fulfill the user's request:
       const contentEl = liveEl.querySelector('.canvas-live-content');
 
       if (thinkingEl && reasoning) {
-        thinkingEl.innerHTML = renderThinkingBox(reasoning);
+        let detailsBox = thinkingEl.querySelector('.thinking-box');
+        if (!detailsBox) {
+          thinkingEl.innerHTML = renderThinkingBox(reasoning);
+        } else {
+          const bodyEl = detailsBox.querySelector('.thinking-box-body');
+          const summaryEl = detailsBox.querySelector('summary');
+          if (bodyEl) {
+            bodyEl.innerHTML = escapeHtml(reasoning.trim()).replace(/\n/g, '<br>');
+          }
+          if (summaryEl) {
+            const wordCount = reasoning.trim().split(/\s+/).length;
+            summaryEl.textContent = `💭 Thinking (${wordCount} kata)`;
+          }
+        }
       }
+
       if (contentEl && text) {
         contentEl.innerHTML = formatChatMessage(text);
       }
 
       if (stream) {
-        const isNearBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 150;
+        const isNearBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 220;
         if (isNearBottom) {
           stream.scrollTop = stream.scrollHeight;
         }
@@ -220,16 +235,37 @@ Directly fulfill the user's request:
 
     const onChunk = (chunkData) => {
       latestStreamData = chunkData;
+      const now = performance.now();
       if (!renderPending) {
-        renderPending = true;
-        if (typeof requestAnimationFrame === 'function') {
-          requestAnimationFrame(() => {
+        const timeSinceLast = now - lastRenderTimestamp;
+        if (timeSinceLast >= 35) {
+          renderPending = true;
+          if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => {
+              renderPending = false;
+              lastRenderTimestamp = performance.now();
+              flushCanvasStreamUI();
+            });
+          } else {
             renderPending = false;
+            lastRenderTimestamp = now;
             flushCanvasStreamUI();
-          });
+          }
         } else {
-          renderPending = false;
-          flushCanvasStreamUI();
+          renderPending = true;
+          setTimeout(() => {
+            if (typeof requestAnimationFrame === 'function') {
+              requestAnimationFrame(() => {
+                renderPending = false;
+                lastRenderTimestamp = performance.now();
+                flushCanvasStreamUI();
+              });
+            } else {
+              renderPending = false;
+              lastRenderTimestamp = performance.now();
+              flushCanvasStreamUI();
+            }
+          }, 35 - timeSinceLast);
         }
       }
     };
@@ -248,7 +284,7 @@ Directly fulfill the user's request:
     const assistantMsg = {
       id: 'msg_' + Date.now(),
       role: 'assistant',
-      content: response.isReasoningOnly ? '' : response.text,
+      content: response.text || response.reasoning || '',
       reasoning: response.reasoning || '',
       timestamp: new Date().toISOString()
     };

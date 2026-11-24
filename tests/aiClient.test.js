@@ -403,3 +403,67 @@ test('completeChat delegates to streamChat when onChunk callback is provided', a
     globalThis.fetch = originalFetch;
   }
 });
+
+test('streamChat extracts <!DOCTYPE html> code starting inside unclosed <think> tag into text', async () => {
+  const { streamChat } = await import('../src/services/ai/client.js');
+  const originalFetch = globalThis.fetch;
+
+  const encoder = new TextEncoder();
+  // Simulates a reasoning model that emits <think>, thinks at length, and directly emits <!DOCTYPE html> without </think>
+  const mockChunks = [
+    'data: {"choices":[{"delta":{"content":"<think>The user wants a portfolio page without AI slop. I should structure hero and projects."}}]}\n\n',
+    'data: {"choices":[{"delta":{"content":"<!DOCTYPE html><html><head><title>Portfolio</title></head><body><h1>Dev Portfolio</h1></body></html>"}}]}\n\n',
+    'data: [DONE]\n\n'
+  ];
+
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    headers: {
+      get: (header) => (header.toLowerCase() === 'content-type' ? 'text/event-stream' : null)
+    },
+    body: new ReadableStream({
+      start(controller) {
+        for (const c of mockChunks) {
+          controller.enqueue(encoder.encode(c));
+        }
+        controller.close();
+      }
+    })
+  });
+
+  try {
+    const res = await streamChat({
+      messages: [{ role: 'user', content: 'Create portfolio' }],
+      overrideConfig: {
+        provider: 'openrouter',
+        apiKey: 'sk-test',
+        model: 'ernie-5.5-flash-preview'
+      }
+    });
+
+    assert.ok(res.reasoning.includes('The user wants a portfolio page'), 'Reasoning part should be stashed');
+    assert.ok(res.text.includes('<!DOCTYPE html><html>'), 'HTML code must be extracted into text');
+    assert.equal(res.isReasoningOnly, false, 'Should NOT be flagged as reasoning-only when code exists');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('buildCleanHistoryPayload includes assistant messages with reasoning so user turns are not stacked', async () => {
+  const { buildCleanHistoryPayload } = await import('../src/modules/chat/storage.js');
+
+  const messages = [
+    { id: '1', role: 'user', content: 'Buat web' },
+    { id: '2', role: 'assistant', content: '', reasoning: 'Thinking about layout...' },
+    { id: '3', role: 'user', content: 'Lanjutkan kodenya' }
+  ];
+
+  const payload = buildCleanHistoryPayload(messages);
+
+  assert.equal(payload.length, 3, 'Must retain all 3 messages without dropping assistant message');
+  assert.equal(payload[0].role, 'user');
+  assert.equal(payload[1].role, 'assistant');
+  assert.equal(payload[1].content, 'Thinking about layout...');
+  assert.equal(payload[2].role, 'user');
+});
