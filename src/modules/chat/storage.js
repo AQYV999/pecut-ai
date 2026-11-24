@@ -157,13 +157,13 @@ export function clearActiveChatSession() {
 
 /**
  * Builds a clean, token-bounded history payload for the AI API.
- * Excludes welcome banners, error messages, and prevents huge leftover contexts from blowing token limits.
+ * Excludes welcome banners, error messages, and prioritizes deliverables over runaway internal thinking traces.
  * @param {Array<Object>} messages
- * @param {number} [maxMessages=10]
- * @param {number} [maxChars=16000]
+ * @param {number} [maxMessages=20]
+ * @param {number} [maxChars=120000]
  * @returns {Array<{ role: string, content: string }>}
  */
-export function buildCleanHistoryPayload(messages = [], maxMessages = 10, maxChars = 16000) {
+export function buildCleanHistoryPayload(messages = [], maxMessages = 20, maxChars = 120000) {
   if (!Array.isArray(messages)) return [];
 
   const valid = messages.filter(m => {
@@ -180,10 +180,13 @@ export function buildCleanHistoryPayload(messages = [], maxMessages = 10, maxCha
   const bounded = [];
   let charTotal = 0;
 
-  // Walk from newest to oldest so the latest user message is always preserved
+  // Walk from newest to oldest so recent turns are prioritized
   for (let i = recent.length - 1; i >= 0; i--) {
     const item = recent[i];
-    const text = String(item.content || item.reasoning || '');
+    // For assistant messages, prioritize the actual output code/content over internal thinking traces
+    const text = String(item.content ? item.content : (item.reasoning || ''));
+    if (!text.trim()) continue;
+
     if (bounded.length > 0 && charTotal + text.length > maxChars) {
       break;
     }

@@ -348,6 +348,10 @@ export async function completeChat(options = {}) {
         totalTokens: Number(rawUsage.total_tokens || rawUsage.totalTokens || 0)
       };
 
+      const normReason = String(finishReason || '').toLowerCase();
+      const hasUnclosedHtml = (content.includes('<!DOCTYPE') || content.includes('<html')) && !content.includes('</html>');
+      const truncated = normReason.includes('length') || normReason.includes('max_tokens') || hasUnclosedHtml;
+
       return {
         text: content,
         reasoning,
@@ -355,7 +359,7 @@ export async function completeChat(options = {}) {
         provider,
         model,
         finishReason,
-        truncated: finishReason === 'length',
+        truncated,
         isReasoningOnly,
         usage
       };
@@ -574,6 +578,10 @@ export async function streamChat(options = {}, onChunk = null) {
           });
         }
 
+        const normReason = String(finishReason || '').toLowerCase();
+        const hasUnclosedHtml = (content.includes('<!DOCTYPE') || content.includes('<html')) && !content.includes('</html>');
+        const truncated = normReason.includes('length') || normReason.includes('max_tokens') || hasUnclosedHtml;
+
         return {
           text: content,
           reasoning,
@@ -581,7 +589,7 @@ export async function streamChat(options = {}, onChunk = null) {
           provider,
           model,
           finishReason,
-          truncated: finishReason === 'length',
+          truncated,
           isReasoningOnly,
           usage: {
             promptTokens: Number(data.usage?.prompt_tokens || 0),
@@ -771,6 +779,10 @@ export async function streamChat(options = {}, onChunk = null) {
         });
       }
 
+      const normReason = String(finishReason || '').toLowerCase();
+      const hasUnclosedHtml = (accumulatedText.includes('<!DOCTYPE') || accumulatedText.includes('<html')) && !accumulatedText.includes('</html>');
+      const truncated = normReason.includes('length') || normReason.includes('max_tokens') || hasUnclosedHtml;
+
       return {
         text: accumulatedText,
         reasoning: accumulatedReasoning,
@@ -778,7 +790,7 @@ export async function streamChat(options = {}, onChunk = null) {
         provider,
         model: modelName,
         finishReason,
-        truncated: finishReason === 'length',
+        truncated,
         isReasoningOnly,
         usage: {
           promptTokens: Number(rawUsage?.prompt_tokens || rawUsage?.promptTokens || 0),

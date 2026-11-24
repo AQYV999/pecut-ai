@@ -7,6 +7,7 @@ import { completeChat, getActiveProviderInfo } from '../../services/ai/client.js
 import { openAIModal } from '../aiModal.js';
 import { showToast, escapeHtml } from '../../utils/helpers.js';
 import { formatRichMarkdown, renderThinkingBox } from '../../utils/markdown.js';
+import { stitchContent, buildAnchoredContinuationPrompt, canAutoContinue } from '../../utils/continuation.js';
 import { registerViewHandler } from '../navigation.js';
 import { CHAT_MODES } from './modes.js';
 import {
@@ -122,13 +123,20 @@ export function renderActiveChatSession() {
 
     let continueHtml = '';
     if (!isUser && isLast && (msg.truncated || msg.isReasoningOnly)) {
-      const btnLabel = msg.isReasoningOnly ? '⏩ Lanjutkan ke Hasil Akhir' : '⏩ Lanjutkan Jawaban (Terpotong)';
+      const partCount = msg.partCount || 1;
+      const partBadge = partCount > 1 ? ` (Bagian ${partCount + 1})` : '';
+      const btnLabel = msg.isReasoningOnly ? '⏩ Lanjutkan ke Hasil Akhir' : `⏩ Lanjutkan & Gabungkan Utuh${partBadge}`;
       continueHtml = `
         <div class="chat-continue-bar">
-          <span class="chat-truncated-badge">Teks terpotong batas token</span>
-          <button type="button" class="btn btn-primary btn-xs btn-continue-generation" data-reasoning-only="${msg.isReasoningOnly ? '1' : '0'}">${btnLabel}</button>
+          <span class="chat-truncated-badge">⚠️ Teks terpotong batas token</span>
+          <button type="button" class="btn btn-primary btn-xs btn-continue-generation" data-msg-id="${escapeHtml(msg.id)}" data-reasoning-only="${msg.isReasoningOnly ? '1' : '0'}">${btnLabel}</button>
         </div>
       `;
+    }
+
+    let stitchedBadgeHtml = '';
+    if (!isUser && msg.partCount > 1 && !msg.truncated) {
+      stitchedBadgeHtml = `<div class="chat-stitched-badge" style="font-size: 0.76rem; color: #10b981; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.35rem;"><span>✓</span><span>Digabungkan utuh (${msg.partCount} bagian)</span></div>`;
     }
 
     return `
@@ -137,6 +145,7 @@ export function renderActiveChatSession() {
         <div class="chat-bubble ${isUser ? 'user-bubble' : 'assistant-bubble'}">
           ${thinkingHtml}
           ${bodyHtml}
+          ${stitchedBadgeHtml}
           ${continueHtml}
         </div>
       </div>
@@ -168,10 +177,15 @@ export function renderActiveChatSession() {
   stream.querySelectorAll('.btn-continue-generation').forEach(btn => {
     btn.addEventListener('click', () => {
       const wasReasoningOnly = btn.getAttribute('data-reasoning-only') === '1';
-      const prompt = wasReasoningOnly
-        ? 'Tuliskan dan cetak langsung kode HTML lengkapnya sekarang dari <!DOCTYPE html> sampai </html>. DILARANG berpikir atau menggunakan tag <think>. Langsung keluarkan kodenya.'
-        : 'Lanjutkan persis dari karakter terakhir yang terpotong sebelumnya tanpa mengulang dari awal.';
-      sendGeneralChatMessage(prompt);
+      const msgId = btn.getAttribute('data-msg-id');
+      const session = getActiveChatSession();
+      const targetMsg = (session.messages || []).find(m => m.id === msgId) || (session.messages || []).slice(-1)[0];
+      const targetContent = targetMsg ? (targetMsg.content || targetMsg.reasoning || '') : '';
+      const prompt = buildAnchoredContinuationPrompt(targetContent, wasReasoningOnly);
+      sendGeneralChatMessage(prompt, {
+        stitchTargetId: targetMsg?.id,
+        partIndex: ((targetMsg?.partCount || 1) + 1)
+      });
     });
   });
 
@@ -181,10 +195,14 @@ export function renderActiveChatSession() {
 /**
  * Sends a chat message to the active BYOK provider.
  * @param {string|null} [overrideText=null]
+ * @param {Object} [options={}]
+ * @param {string|null} [options.stitchTargetId=null]
+ * @param {number} [options.partIndex=1]
  */
-export async function sendGeneralChatMessage(overrideText = null) {
+export async function sendGeneralChatMessage(overrideText = null, options = {}) {
   if (isGenerating) return;
 
+  const { stitchTargetId = null, partIndex = 1 } = options;
   const input = document.getElementById('chatThreadInput');
   const userText = (typeof overrideText === 'string' ? overrideText : (input?.value || '')).trim();
   if (!userText) return;
@@ -219,25 +237,38 @@ export async function sendGeneralChatMessage(overrideText = null) {
   }
 
   const now = new Date().toISOString();
-  const userMsg = {
-    id: 'msg_' + Date.now(),
-    role: 'user',
-    content: userText,
-    timestamp: now
-  };
+  let updatedMessages;
+  let targetMsg = null;
 
-  const updatedMessages = [...(session.messages || []), userMsg];
-  saveChatSession({
-    id: session.id,
-    messages: updatedMessages
-  });
-  renderActiveChatSession();
+  if (stitchTargetId) {
+    targetMsg = (session.messages || []).find(m => m.id === stitchTargetId);
+  }
 
-  // Auto-generate session title from first user message if default
-  if (session.title === 'New Conversation' && userText) {
-    const autoTitle = userText.length > 28 ? userText.slice(0, 25) + '...' : userText;
-    saveChatSession({ id: session.id, title: autoTitle });
-    renderChatSidebar();
+  if (targetMsg) {
+    // When continuing and stitching onto an existing message, don't pollute the UI
+    // with a redundant user bubble.
+    updatedMessages = [...(session.messages || [])];
+  } else {
+    const userMsg = {
+      id: 'msg_' + Date.now(),
+      role: 'user',
+      content: userText,
+      timestamp: now
+    };
+
+    updatedMessages = [...(session.messages || []), userMsg];
+    saveChatSession({
+      id: session.id,
+      messages: updatedMessages
+    });
+    renderActiveChatSession();
+
+    // Auto-generate session title from first user message if default
+    if (session.title === 'New Conversation' && userText) {
+      const autoTitle = userText.length > 28 ? userText.slice(0, 25) + '...' : userText;
+      saveChatSession({ id: session.id, title: autoTitle });
+      renderChatSidebar();
+    }
   }
 
   // Real-time live streaming assistant row
@@ -246,12 +277,13 @@ export async function sendGeneralChatMessage(overrideText = null) {
   const liveEl = document.createElement('div');
   liveEl.className = 'chat-message-row assistant-row live-streaming';
   liveEl.id = 'chatLiveAssistantRow';
+  const subtitleLabel = targetMsg ? `Melanjutkan Bagian ${partIndex}...` : `${escapeHtml(providerInfo.name)} • ${escapeHtml(shortModelName)}`;
   liveEl.innerHTML = `
     <div class="chat-avatar">⚡</div>
     <div class="chat-bubble assistant-bubble">
       <div class="chat-stream-header" style="font-size: 0.76rem; color: var(--text-tertiary); margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem;">
         <span class="chat-stream-dot" style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#10b981;"></span>
-        <span>Pecut AI (${escapeHtml(providerInfo.name)} • ${escapeHtml(shortModelName)})</span>
+        <span>Pecut AI (${subtitleLabel})</span>
       </div>
       <div class="chat-live-thinking"></div>
       <div class="chat-bubble-content chat-live-content">
@@ -272,8 +304,11 @@ export async function sendGeneralChatMessage(overrideText = null) {
     const currentMode = CHAT_MODES[session.mode] || CHAT_MODES.coder;
     const systemPrompt = currentMode.systemPrompt;
 
-    // Send clean, token-bounded history (excludes errors, welcome banners, and runaway contexts)
-    const historyPayload = buildCleanHistoryPayload(updatedMessages, 10, 16000);
+    // Send clean, token-bounded history (includes all turns, cut-off code, and continuation instructions)
+    const historyMessages = targetMsg
+      ? [...updatedMessages, { role: 'user', content: userText }]
+      : updatedMessages;
+    const historyPayload = buildCleanHistoryPayload(historyMessages, 20, 120000);
 
     let renderPending = false;
     let latestStreamData = null;
@@ -364,22 +399,75 @@ export async function sendGeneralChatMessage(overrideText = null) {
 
     liveEl.remove();
 
-    const assistantMsg = {
-      id: 'msg_' + Date.now(),
-      role: 'assistant',
-      content: response.text || response.reasoning || '',
-      reasoning: response.reasoning || '',
-      truncated: Boolean(response.truncated),
-      isReasoningOnly: Boolean(response.isReasoningOnly),
-      model: response.model,
-      timestamp: new Date().toISOString()
-    };
+    if (targetMsg) {
+      // Seamless Stitching!
+      const continuationText = response.text || response.reasoning || '';
+      const stitchedContent = targetMsg.isReasoningOnly
+        ? continuationText
+        : stitchContent(targetMsg.content, continuationText);
 
-    saveChatSession({
-      id: session.id,
-      messages: [...updatedMessages, assistantMsg]
-    });
-    renderActiveChatSession();
+      targetMsg.content = stitchedContent;
+      targetMsg.reasoning = [targetMsg.reasoning, response.reasoning].filter(Boolean).join('\n\n');
+      targetMsg.truncated = Boolean(response.truncated);
+      targetMsg.isReasoningOnly = false;
+      targetMsg.partCount = partIndex;
+      targetMsg.model = response.model || targetMsg.model;
+      targetMsg.updatedAt = new Date().toISOString();
+
+      saveChatSession({
+        id: session.id,
+        messages: session.messages
+      });
+      renderActiveChatSession();
+
+      // Auto-continue if code is still truncated and under max limit (up to 3 parts)
+      if (canAutoContinue(targetMsg, partIndex, 3)) {
+        showToast(`⚡ Melanjutkan otomatis bagian ${partIndex + 1} agar kode tuntas...`, 2500);
+        const nextPrompt = buildAnchoredContinuationPrompt(targetMsg.content, false);
+        setTimeout(() => {
+          sendGeneralChatMessage(nextPrompt, {
+            stitchTargetId: targetMsg.id,
+            partIndex: partIndex + 1
+          });
+        }, 400);
+        return;
+      }
+
+      if (!targetMsg.truncated) {
+        showToast('✅ Berhasil digabungkan utuh menjadi satu kode lengkap!', 3000);
+      }
+    } else {
+      const assistantMsg = {
+        id: 'msg_' + Date.now(),
+        role: 'assistant',
+        content: response.text || response.reasoning || '',
+        reasoning: response.reasoning || '',
+        truncated: Boolean(response.truncated),
+        isReasoningOnly: Boolean(response.isReasoningOnly),
+        model: response.model,
+        partCount: 1,
+        timestamp: new Date().toISOString()
+      };
+
+      const finalMessages = [...updatedMessages, assistantMsg];
+      saveChatSession({
+        id: session.id,
+        messages: finalMessages
+      });
+      renderActiveChatSession();
+
+      // If initially truncated, auto-trigger part 2 continuation seamlessly
+      if (canAutoContinue(assistantMsg, 1, 3)) {
+        showToast('⚡ Teks terpotong batas token, otomatis melanjutkan bagian 2...', 2500);
+        const nextPrompt = buildAnchoredContinuationPrompt(assistantMsg.content, false);
+        setTimeout(() => {
+          sendGeneralChatMessage(nextPrompt, {
+            stitchTargetId: assistantMsg.id,
+            partIndex: 2
+          });
+        }, 400);
+      }
+    }
   } catch (err) {
     liveEl.remove();
     showToast(`Error: ${err.message}`, 4000);

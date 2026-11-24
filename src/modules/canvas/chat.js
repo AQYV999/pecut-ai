@@ -191,8 +191,9 @@ Directly fulfill the user's request:
       .slice(-10)
       .map(m => ({
         role: m.role,
-        content: m.content
-      }));
+        content: (m.content || m.reasoning || '').trim()
+      }))
+      .filter(m => m.content.length > 0);
 
     let renderPending = false;
     let latestStreamData = null;

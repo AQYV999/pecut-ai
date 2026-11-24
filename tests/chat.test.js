@@ -131,3 +131,21 @@ test('formatMarkdown gracefully closes truncated code fences', () => {
   assert.ok(html.includes('code-block-wrapper'));
   assert.ok(html.includes('.bg { color: red;'));
 });
+
+test('buildCleanHistoryPayload preserves large partial code generations and continuation turns', () => {
+  const largeCode = '<!DOCTYPE html>\n<html>\n<style>\n' + 'body { margin: 0; }\n'.repeat(600) + '/* cut off */';
+  const msgs = [
+    { id: 'u1', role: 'user', content: 'Role: Senior Developer. Buatkan web portofolio lengkap.' },
+    { id: 'a1', role: 'assistant', content: largeCode, reasoning: 'Planning layout...', truncated: true },
+    { id: 'u2', role: 'user', content: 'Lanjutkan persis dari potongan terakhir.' }
+  ];
+
+  // Default budget is 120,000 chars, so all turns must be preserved cleanly
+  const payload = buildCleanHistoryPayload(msgs);
+  assert.equal(payload.length, 3, 'Must preserve all 3 turns including large code');
+  assert.equal(payload[0].role, 'user');
+  assert.equal(payload[1].role, 'assistant');
+  assert.equal(payload[1].content, largeCode, 'Must send code content, not reasoning trace');
+  assert.equal(payload[2].role, 'user');
+});
+
