@@ -438,6 +438,52 @@
   line-height: 1.6;
 }
 
+/* Optimizer Loading State */
+.optimizer-loading-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  background: var(--bg-sunken);
+  border: 1px dashed var(--surface-border-strong);
+  border-radius: 0px;
+  min-height: 220px;
+}
+
+.optimizer-loading-placeholder .spin {
+  color: var(--accent-ink);
+  margin-bottom: 0.85rem;
+}
+
+.optimizer-loading-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  margin-bottom: 0.4rem;
+}
+
+.optimizer-loading-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  max-width: 380px;
+  line-height: 1.5;
+}
+
+.optimizer-elapsed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+  padding: 0.25rem 0.65rem;
+  background: var(--surface-color);
+  border: 1px solid var(--surface-border);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
 /* Library View */
 .library-header-actions {
   display: flex;

@@ -51,17 +51,52 @@ export function initOptimizer() {
       runBtn.disabled = true;
       runBtn.innerHTML = `
         <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-        Optimizing...
+        <span>Mengoptimasi...</span>
       `;
+
+      const outputEl = document.getElementById('optimizedOutputText');
+      const reportEl = document.getElementById('analysisReportContent');
+
+      // Immediate loading placeholder in preview pane so the user knows it is actively working
+      if (outputEl) {
+        outputEl.innerHTML = `
+          <div class="optimizer-loading-placeholder">
+            <svg class="spin" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <div class="optimizer-loading-title">Sedang Menganalisis &amp; Mengoptimasi Prompt...</div>
+            <div class="optimizer-loading-desc">AI sedang meninjau kejelasan prompt Anda dan merestrukturisasi menjadi prompt bertaraf profesional.</div>
+            <div class="optimizer-elapsed-badge">
+              <span>⏳</span> <span id="optElapsedCounter">Menghubungkan ke model AI...</span>
+            </div>
+          </div>
+        `;
+      }
+
+      if (reportEl) {
+        reportEl.innerHTML = `
+          <div style="padding: 2rem 1rem; text-align: center; color: var(--text-tertiary); font-style: italic;">
+            <svg class="spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 0.5rem; display: inline-block;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <p>Menyiapkan laporan analisis struktural...</p>
+          </div>
+        `;
+      }
+
+      const startTime = Date.now();
+      let timerInterval = null;
+      if (typeof window !== 'undefined' && typeof window.setInterval === 'function') {
+        timerInterval = window.setInterval(() => {
+          const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+          const counterEl = document.getElementById('optElapsedCounter');
+          if (counterEl) {
+            counterEl.textContent = `Sedang memproses (${elapsedSec} detik)...`;
+          }
+        }, 1000);
+      }
 
       try {
         const aiResult = await optimizePromptWithAI(rawInput, goals);
 
-        const outputEl = document.getElementById('optimizedOutputText');
-        const reportEl = document.getElementById('analysisReportContent');
-
         if (aiResult.mode === 'ai') {
-          // Real AI result from Gemini
+          // Real AI result from provider
           if (outputEl) outputEl.textContent = aiResult.optimizedPrompt;
 
           const improvementsList = (aiResult.improvements || [])
@@ -123,7 +158,16 @@ export function initOptimizer() {
         }
       } catch (err) {
         showToast('Optimization failed: ' + err.message, 'error');
+        if (outputEl) {
+          outputEl.innerHTML = `
+            <div style="padding: 1.5rem; color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.08);">
+              <strong style="display:block; margin-bottom: 0.35rem;">⚠️ Gagal Mengoptimasi Prompt</strong>
+              <p style="margin: 0; font-size: 0.88rem; color: var(--text-secondary);">${escapeHtml(err.message)}</p>
+            </div>
+          `;
+        }
       } finally {
+        if (timerInterval) clearInterval(timerInterval);
         runBtn.disabled = false;
         runBtn.innerHTML = origBtnHtml;
       }
