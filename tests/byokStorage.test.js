@@ -19,15 +19,19 @@ const {
 } = await import('../src/modules/storage.js');
 const { PROVIDER_PRESETS } = await import('../src/data/models.js');
 
-test('PROVIDER_PRESETS contains openrouter, gemini, groq, openai, ninerouter, and custom', () => {
+test('PROVIDER_PRESETS contains openrouter, gemini, groq, openai, kilo, nvidia, ninerouter, and custom', () => {
   assert.ok(PROVIDER_PRESETS.openrouter);
   assert.ok(PROVIDER_PRESETS.gemini);
   assert.ok(PROVIDER_PRESETS.groq);
   assert.ok(PROVIDER_PRESETS.openai);
+  assert.ok(PROVIDER_PRESETS.kilo);
+  assert.ok(PROVIDER_PRESETS.nvidia);
   assert.ok(PROVIDER_PRESETS.ninerouter);
   assert.ok(PROVIDER_PRESETS.custom);
   assert.equal(PROVIDER_PRESETS.openrouter.defaultModel, 'meta-llama/llama-3.3-70b-instruct:free');
   assert.equal(PROVIDER_PRESETS.ninerouter.defaultModel, 'VibeCoding');
+  assert.equal(PROVIDER_PRESETS.kilo.defaultModel, 'kilo-auto/balanced');
+  assert.equal(PROVIDER_PRESETS.nvidia.defaultModel, 'meta/llama-3.3-70b-instruct');
 });
 
 test('loadBYOKConfig returns default openrouter preset when storage is empty', () => {

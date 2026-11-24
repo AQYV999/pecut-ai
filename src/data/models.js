@@ -60,6 +60,38 @@ export const PROVIDER_PRESETS = {
     placeholder: 'sk-proj-xxxxxxxxxxxxxxxxxxxxxxx',
     docsUrl: 'https://platform.openai.com/api-keys'
   },
+  kilo: {
+    id: 'kilo',
+    name: 'Kilo Gateway (Multi-Model & Routing)',
+    badge: 'Universal AI Gateway',
+    baseUrl: 'https://api.kilo.ai/api/gateway',
+    defaultModel: 'kilo-auto/balanced',
+    models: [
+      { id: 'kilo-auto/balanced', name: 'Auto Balanced (Smart Routing)', isFree: false },
+      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', isFree: false },
+      { id: 'openai/gpt-4o', name: 'GPT-4o', isFree: false },
+      { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3', isFree: false },
+      { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B Instruct', isFree: false }
+    ],
+    placeholder: 'kilo_xxxxxxxxxxxxxxxxxxxxxxxxxxx',
+    docsUrl: 'https://kilo.ai'
+  },
+  nvidia: {
+    id: 'nvidia',
+    name: 'NVIDIA NIM (Ultra Compute)',
+    badge: 'NVIDIA AI Foundation',
+    baseUrl: 'https://integrate.api.nvidia.com/v1',
+    defaultModel: 'meta/llama-3.3-70b-instruct',
+    models: [
+      { id: 'meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B Instruct (Free Tier)', isFree: true },
+      { id: 'nvidia/llama-3.1-nemotron-70b-instruct', name: 'Nemotron 70B (High Reasoning)', isFree: true },
+      { id: 'deepseek-ai/deepseek-r1', name: 'DeepSeek R1 (Thinking)', isFree: true },
+      { id: 'qwen/qwen2.5-coder-32b-instruct', name: 'Qwen 2.5 Coder 32B', isFree: true },
+      { id: 'mistralai/mixtral-8x22b-instruct-v0.1', name: 'Mixtral 8x22B Instruct', isFree: true }
+    ],
+    placeholder: 'nvapi-xxxxxxxxxxxxxxxxxxxxxxxxxx',
+    docsUrl: 'https://build.nvidia.com'
+  },
   ninerouter: {
     id: 'ninerouter',
     name: '9Router (Local Gateway / Tunnel)',

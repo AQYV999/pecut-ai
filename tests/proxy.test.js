@@ -7,6 +7,8 @@ test('ALLOWED_DOMAINS includes the major AI providers', () => {
   assert.ok(ALLOWED_DOMAINS.includes('generativelanguage.googleapis.com'));
   assert.ok(ALLOWED_DOMAINS.includes('api.groq.com'));
   assert.ok(ALLOWED_DOMAINS.includes('api.openai.com'));
+  assert.ok(ALLOWED_DOMAINS.includes('api.kilo.ai'));
+  assert.ok(ALLOWED_DOMAINS.includes('integrate.api.nvidia.com'));
 });
 
 test('isUrlAllowed only permits whitelisted AI provider domains', () => {
@@ -14,6 +16,8 @@ test('isUrlAllowed only permits whitelisted AI provider domains', () => {
   assert.equal(isUrlAllowed('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'), true);
   assert.equal(isUrlAllowed('https://api.groq.com/openai/v1/chat/completions'), true);
   assert.equal(isUrlAllowed('https://api.openai.com/v1/chat/completions'), true);
+  assert.equal(isUrlAllowed('https://api.kilo.ai/api/gateway/chat/completions'), true);
+  assert.equal(isUrlAllowed('https://integrate.api.nvidia.com/v1/chat/completions'), true);
 
   // Reject SSRF attempts
   assert.equal(isUrlAllowed('http://169.254.169.254/latest/meta-data/'), false);

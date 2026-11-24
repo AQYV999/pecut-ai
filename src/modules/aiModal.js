@@ -22,6 +22,8 @@ const PROVIDER_OPTION_LABELS = {
   gemini: 'Google Gemini (Google AI Studio)',
   groq: 'Groq Cloud (Ultra Fast)',
   openai: 'OpenAI (GPT-4o / Mini)',
+  kilo: 'Kilo Gateway (Multi-Model & Routing)',
+  nvidia: 'NVIDIA NIM (Ultra Compute)',
   ninerouter: '9Router (Local Gateway / Tunnel)',
   custom: 'Custom / Local (Ollama, LMStudio)'
 };
