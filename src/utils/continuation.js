@@ -85,7 +85,21 @@ export function stitchContent(prevContent, continuationContent) {
   }
 
   // 4. Concatenate
-  const combined = prev + next;
+  let combined = prev + next;
+
+  // 5. If an HTML document was completed (contains </html>), prune any leaked ramblings or echoes after </html>
+  const closeHtmlIdx = combined.lastIndexOf('</html>');
+  if (closeHtmlIdx !== -1) {
+    const after = combined.slice(closeHtmlIdx + 7);
+    const codeFenceClose = after.indexOf('```');
+    if (codeFenceClose !== -1) {
+      combined = combined.slice(0, closeHtmlIdx + 7) + '\n```';
+    } else if (countCodeFences(combined.slice(0, closeHtmlIdx + 7)) % 2 === 1) {
+      combined = combined.slice(0, closeHtmlIdx + 7) + '\n```';
+    } else {
+      combined = combined.slice(0, closeHtmlIdx + 7);
+    }
+  }
 
   return combined;
 }
@@ -103,14 +117,13 @@ export function buildAnchoredContinuationPrompt(truncatedContent, isReasoningOnl
   }
 
   const raw = String(truncatedContent || '').trim();
-  const tail = raw.length > 250 ? raw.slice(-250) : raw;
+  const tail = raw.length > 200 ? raw.slice(-200) : raw;
 
-  return `Lanjutkan kode program / tulisan berikut persis dari titik terakhir yang terpotong tanpa mengulang dari awal, tanpa kata pengantar, dan tanpa mengulang berpikir.
-Titik terakhir sebelum terpotong:
-"""
-...${tail}
-"""
-Lanjutkan langsung dari karakter setelah potongan di atas sampai tuntas selesai:`;
+  return `Lanjutkan kode program dari potongan terakhir ini:
+\`\`\`
+${tail}
+\`\`\`
+PENTING: Langsung tuliskan sisa kodenya sampai selesai dan tutup tag </html>. Jangan menulis penjelasan, jangan menganalisis, jangan ada teks pembuka atau penutup. Hanya kode murni:`;
 }
 
 /**
@@ -126,5 +139,7 @@ export function canAutoContinue(msg, currentParts = 1, maxParts = 3) {
   if (currentParts >= maxParts) return false;
   const content = (msg.content || '').trim();
   if (content.length < 20) return false;
+  // If HTML document is already closed, it's 100% complete! Never auto-continue.
+  if (content.includes('</html>')) return false;
   return true;
 }

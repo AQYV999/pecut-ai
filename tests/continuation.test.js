@@ -74,20 +74,34 @@ test('stitchContent strips conversational filler before code continuation', () =
 test('buildAnchoredContinuationPrompt quotes tail snippet for model orientation', () => {
   const code = '```html\n' + 'x'.repeat(500) + '\n<div class="footer">Copyright 2026';
   const prompt = buildAnchoredContinuationPrompt(code, false);
-  assert.ok(prompt.includes('Titik terakhir sebelum terpotong:'));
+  assert.ok(prompt.includes('Lanjutkan kode program dari potongan terakhir ini:'));
   assert.ok(prompt.includes('<div class="footer">Copyright 2026'));
-  assert.ok(prompt.includes('Lanjutkan langsung'));
+  assert.ok(prompt.includes('tag </html>'));
 
   const reasoningPrompt = buildAnchoredContinuationPrompt(code, true);
   assert.ok(reasoningPrompt.includes('<!DOCTYPE html> sampai </html>'));
   assert.ok(reasoningPrompt.includes('DILARANG berpikir'));
 });
 
+test('stitchContent prunes leaked hallucinations and echoes after </html>', () => {
+  const prev = '```html\n<!DOCTYPE html>\n<html><body><h1>App</h1>';
+  const next = '</body></html>\n\nmana file nya?\nThen the model output is long thinking... I\'ll output now. ✅';
+  const merged = stitchContent(prev, next);
+
+  assert.ok(merged.endsWith('</html>\n```') || merged.endsWith('</html>'));
+  assert.ok(!merged.includes('mana file nya?'));
+  assert.ok(!merged.includes('Then the model output is'));
+  assert.ok(!merged.includes('✅'));
+});
+
 test('canAutoContinue enforces limit and minimum content criteria', () => {
-  const validMsg = { truncated: true, isReasoningOnly: false, content: '```html\n<!DOCTYPE html>'.padEnd(200, ' ') };
+  const validMsg = { truncated: true, isReasoningOnly: false, content: '```html\n<div class="page">'.padEnd(200, ' ') };
   assert.equal(canAutoContinue(validMsg, 1, 3), true);
   assert.equal(canAutoContinue(validMsg, 2, 3), true);
   assert.equal(canAutoContinue(validMsg, 3, 3), false, 'Must stop when max parts reached');
+
+  const closedHtmlMsg = { truncated: true, isReasoningOnly: false, content: '```html\n<!DOCTYPE html><html><body>Done</body></html>\n```' };
+  assert.equal(canAutoContinue(closedHtmlMsg, 1, 3), false, 'Must never continue once </html> is closed');
 
   const reasoningOnlyMsg = { truncated: true, isReasoningOnly: true, content: 'Too short' };
   assert.equal(canAutoContinue(reasoningOnlyMsg, 1, 3), false);

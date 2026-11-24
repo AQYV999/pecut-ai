@@ -349,8 +349,9 @@ export async function completeChat(options = {}) {
       };
 
       const normReason = String(finishReason || '').toLowerCase();
-      const hasUnclosedHtml = (content.includes('<!DOCTYPE') || content.includes('<html')) && !content.includes('</html>');
-      const truncated = normReason.includes('length') || normReason.includes('max_tokens') || hasUnclosedHtml;
+      const hasClosedHtml = content.includes('</html>');
+      const hasUnclosedHtml = (content.includes('<!DOCTYPE') || content.includes('<html')) && !hasClosedHtml;
+      const truncated = !hasClosedHtml && (normReason.includes('length') || normReason.includes('max_tokens') || hasUnclosedHtml);
 
       return {
         text: content,
@@ -579,8 +580,9 @@ export async function streamChat(options = {}, onChunk = null) {
         }
 
         const normReason = String(finishReason || '').toLowerCase();
-        const hasUnclosedHtml = (content.includes('<!DOCTYPE') || content.includes('<html')) && !content.includes('</html>');
-        const truncated = normReason.includes('length') || normReason.includes('max_tokens') || hasUnclosedHtml;
+        const hasClosedHtml = content.includes('</html>');
+        const hasUnclosedHtml = (content.includes('<!DOCTYPE') || content.includes('<html')) && !hasClosedHtml;
+        const truncated = !hasClosedHtml && (normReason.includes('length') || normReason.includes('max_tokens') || hasUnclosedHtml);
 
         return {
           text: content,
@@ -780,8 +782,9 @@ export async function streamChat(options = {}, onChunk = null) {
       }
 
       const normReason = String(finishReason || '').toLowerCase();
-      const hasUnclosedHtml = (accumulatedText.includes('<!DOCTYPE') || accumulatedText.includes('<html')) && !accumulatedText.includes('</html>');
-      const truncated = normReason.includes('length') || normReason.includes('max_tokens') || hasUnclosedHtml;
+      const hasClosedHtml = accumulatedText.includes('</html>');
+      const hasUnclosedHtml = (accumulatedText.includes('<!DOCTYPE') || accumulatedText.includes('<html')) && !hasClosedHtml;
+      const truncated = !hasClosedHtml && (normReason.includes('length') || normReason.includes('max_tokens') || hasUnclosedHtml);
 
       return {
         text: accumulatedText,
