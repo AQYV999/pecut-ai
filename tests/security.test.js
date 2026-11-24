@@ -426,3 +426,63 @@ test('TRANSPORT-08: abortableSleep wakes up and aborts immediately when signal a
   const duration = Date.now() - startTime;
   assert.ok(duration < 300, `Sleep should have been aborted immediately (~50ms), took ${duration}ms`);
 });
+
+test('SEC-05: handleProxyRequest streams SSE text/event-stream chunks without buffering', async () => {
+  const originalFetch = globalThis.fetch;
+  const encoder = new TextEncoder();
+
+  globalThis.fetch = async () => ({
+    status: 200,
+    headers: {
+      get: (h) => (h.toLowerCase() === 'content-type' ? 'text/event-stream; charset=utf-8' : null)
+    },
+    body: new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"Pecut Live Stream"}}]}\n\n'));
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      }
+    })
+  });
+
+  const writtenChunks = [];
+  let headerStatus = 0;
+  let headersSet = null;
+  let ended = false;
+
+  const req = {
+    method: 'POST',
+    headers: {
+      'x-target-url': 'https://openrouter.ai/api/v1/chat/completions',
+      authorization: 'Bearer sk-test'
+    },
+    body: JSON.stringify({ stream: true }),
+    on: () => {},
+    off: () => {}
+  };
+
+  const res = {
+    writeHead: (status, headers) => {
+      headerStatus = status;
+      headersSet = headers;
+    },
+    write: (chunk) => {
+      writtenChunks.push(new TextDecoder().decode(chunk));
+    },
+    end: () => {
+      ended = true;
+    }
+  };
+
+  try {
+    await handleProxyRequest(req, res);
+
+    assert.equal(headerStatus, 200);
+    assert.ok(headersSet['Content-Type'].includes('text/event-stream'));
+    assert.equal(headersSet['Cache-Control'], 'no-cache, no-transform');
+    assert.ok(writtenChunks.some(c => c.includes('Pecut Live Stream')));
+    assert.equal(ended, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

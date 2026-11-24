@@ -239,20 +239,27 @@ export async function sendGeneralChatMessage(overrideText = null) {
     renderChatSidebar();
   }
 
-  // Typing indicator
+  // Real-time live streaming assistant row
   const shortModelName = (providerInfo.model || '').split('/').pop().replace(':free', '');
   const stream = document.getElementById('chatThreadStream');
-  const typingEl = document.createElement('div');
-  typingEl.className = 'chat-message-row assistant-row typing-indicator';
-  typingEl.id = 'chatThreadTyping';
-  typingEl.innerHTML = `
+  const liveEl = document.createElement('div');
+  liveEl.className = 'chat-message-row assistant-row live-streaming';
+  liveEl.id = 'chatLiveAssistantRow';
+  liveEl.innerHTML = `
     <div class="chat-avatar">⚡</div>
-    <div class="chat-bubble assistant-bubble" style="opacity: 0.75;">
-      <em>Pecut AI (${escapeHtml(providerInfo.name)} • ${escapeHtml(shortModelName)}) sedang merespon...</em>
+    <div class="chat-bubble assistant-bubble">
+      <div class="chat-stream-header" style="font-size: 0.76rem; color: var(--text-tertiary); margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem;">
+        <span class="chat-stream-dot" style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#10b981;"></span>
+        <span>Pecut AI (${escapeHtml(providerInfo.name)} • ${escapeHtml(shortModelName)})</span>
+      </div>
+      <div class="chat-live-thinking"></div>
+      <div class="chat-bubble-content chat-live-content">
+        <em style="color: var(--text-tertiary); font-size: 0.88rem;">Menghubungkan ke AI...</em>
+      </div>
     </div>
   `;
   if (stream) {
-    stream.appendChild(typingEl);
+    stream.appendChild(liveEl);
     stream.scrollTop = stream.scrollHeight;
   }
 
@@ -267,14 +274,55 @@ export async function sendGeneralChatMessage(overrideText = null) {
     // Send clean, token-bounded history (excludes errors, welcome banners, and runaway contexts)
     const historyPayload = buildCleanHistoryPayload(updatedMessages, 10, 16000);
 
+    let renderPending = false;
+    let latestStreamData = null;
+
+    const flushStreamUI = () => {
+      if (!latestStreamData || !liveEl.isConnected) return;
+      const { text, reasoning } = latestStreamData;
+      const thinkingContainer = liveEl.querySelector('.chat-live-thinking');
+      const contentContainer = liveEl.querySelector('.chat-live-content');
+
+      if (thinkingContainer && reasoning) {
+        thinkingContainer.innerHTML = renderThinkingBox(reasoning);
+      }
+      if (contentContainer && text) {
+        contentContainer.innerHTML = formatRichMarkdown(text);
+      }
+
+      if (stream) {
+        const isNearBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 150;
+        if (isNearBottom) {
+          stream.scrollTop = stream.scrollHeight;
+        }
+      }
+    };
+
+    const onChunk = (chunkData) => {
+      latestStreamData = chunkData;
+      if (!renderPending) {
+        renderPending = true;
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => {
+            renderPending = false;
+            flushStreamUI();
+          });
+        } else {
+          renderPending = false;
+          flushStreamUI();
+        }
+      }
+    };
+
     const response = await completeChat({
       systemPrompt,
       messages: historyPayload,
       temperature: 0.4,
-      maxTokens: 8192
+      maxTokens: 8192,
+      onChunk
     });
 
-    document.getElementById('chatThreadTyping')?.remove();
+    liveEl.remove();
 
     const assistantMsg = {
       id: 'msg_' + Date.now(),
@@ -293,7 +341,7 @@ export async function sendGeneralChatMessage(overrideText = null) {
     });
     renderActiveChatSession();
   } catch (err) {
-    document.getElementById('chatThreadTyping')?.remove();
+    liveEl.remove();
     showToast(`Error: ${err.message}`, 4000);
 
     const errorMsg = {
@@ -326,6 +374,30 @@ export function initAIChat() {
 
   renderChatSidebar();
   renderActiveChatSession();
+
+  // Delegated click handlers for code copying and HTML live preview
+  const threadStream = document.getElementById('chatThreadStream');
+  if (threadStream) {
+    threadStream.addEventListener('click', (e) => {
+      const copyBtn = e.target.closest('.btn-copy-code');
+      if (copyBtn) {
+        const codeBlock = copyBtn.closest('.code-block-wrapper')?.querySelector('code');
+        if (codeBlock) {
+          navigator.clipboard.writeText(codeBlock.innerText);
+          showToast('Kode berhasil disalin!');
+        }
+        return;
+      }
+      const previewBtn = e.target.closest('.btn-preview-html');
+      if (previewBtn) {
+        const codeBlock = previewBtn.closest('.code-block-wrapper')?.querySelector('code');
+        if (codeBlock) {
+          openHtmlPreviewModal(codeBlock.innerText);
+        }
+        return;
+      }
+    });
+  }
 
   const startNewChat = () => {
     const modeSelect = document.getElementById('chatModeSelect');

@@ -10,7 +10,8 @@ export {
   isLocalOrigin,
   parseRobustJson,
   buildChatPayload,
-  completeChat
+  completeChat,
+  streamChat
 } from './transport.js';
 
 export {

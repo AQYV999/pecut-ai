@@ -139,14 +139,23 @@ export async function sendChatMessage() {
   });
   renderChatStream();
 
-  // Render typing indicator
+  // Render live streaming assistant message
   const stream = document.getElementById('canvasChatStream');
-  const typingEl = document.createElement('div');
-  typingEl.className = 'canvas-chat-msg assistant typing-indicator';
-  typingEl.id = 'canvasTypingIndicator';
-  typingEl.innerHTML = `<em>Pecut AI (${escapeHtml(providerInfo.name)}) sedang berpikir...</em>`;
+  const liveEl = document.createElement('div');
+  liveEl.className = 'canvas-chat-msg assistant live-streaming';
+  liveEl.id = 'canvasLiveAssistantMsg';
+  liveEl.innerHTML = `
+    <div style="font-size: 0.74rem; color: var(--text-tertiary); margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.35rem;">
+      <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#10b981;"></span>
+      <span>⚡ Pecut AI (${escapeHtml(providerInfo.name)}) sedang merespon...</span>
+    </div>
+    <div class="canvas-live-thinking"></div>
+    <div class="canvas-live-content">
+      <em style="color: var(--text-tertiary); font-size: 0.85rem;">Menghubungkan...</em>
+    </div>
+  `;
   if (stream) {
-    stream.appendChild(typingEl);
+    stream.appendChild(liveEl);
     stream.scrollTop = stream.scrollHeight;
   }
 
@@ -185,15 +194,56 @@ Directly fulfill the user's request:
         content: m.content
       }));
 
+    let renderPending = false;
+    let latestStreamData = null;
+
+    const flushCanvasStreamUI = () => {
+      if (!latestStreamData || !liveEl.isConnected) return;
+      const { text, reasoning } = latestStreamData;
+      const thinkingEl = liveEl.querySelector('.canvas-live-thinking');
+      const contentEl = liveEl.querySelector('.canvas-live-content');
+
+      if (thinkingEl && reasoning) {
+        thinkingEl.innerHTML = renderThinkingBox(reasoning);
+      }
+      if (contentEl && text) {
+        contentEl.innerHTML = formatChatMessage(text);
+      }
+
+      if (stream) {
+        const isNearBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 150;
+        if (isNearBottom) {
+          stream.scrollTop = stream.scrollHeight;
+        }
+      }
+    };
+
+    const onChunk = (chunkData) => {
+      latestStreamData = chunkData;
+      if (!renderPending) {
+        renderPending = true;
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => {
+            renderPending = false;
+            flushCanvasStreamUI();
+          });
+        } else {
+          renderPending = false;
+          flushCanvasStreamUI();
+        }
+      }
+    };
+
     const response = await completeChat({
       systemPrompt,
       messages: historyPayload,
       temperature: 0.3,
-      maxTokens: 8192
+      maxTokens: 8192,
+      onChunk
     });
 
-    // Remove typing indicator
-    document.getElementById('canvasTypingIndicator')?.remove();
+    // Remove live indicator
+    liveEl.remove();
 
     const assistantMsg = {
       id: 'msg_' + Date.now(),
@@ -210,7 +260,7 @@ Directly fulfill the user's request:
 
     renderChatStream();
   } catch (err) {
-    document.getElementById('canvasTypingIndicator')?.remove();
+    liveEl.remove();
     showToast(`AI Error: ${err.message}`, 4000);
 
     const errorMsg = {

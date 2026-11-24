@@ -247,6 +247,19 @@
   color: var(--text-primary);
 }
 
+.chat-message-row.live-streaming .assistant-bubble {
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.chat-stream-dot {
+  animation: pulseDot 1.4s ease-in-out infinite;
+}
+
 /* Collapsible Thinking / Reasoning Box */
 .thinking-box {
   margin-bottom: 0.5rem;

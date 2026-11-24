@@ -268,3 +268,138 @@ test('completeChat extracts inline <think> blocks into reasoning and flags finis
     globalThis.fetch = originalFetch;
   }
 });
+
+test('streamChat receives and processes progressive SSE chunks and extracts reasoning', async () => {
+  const { streamChat } = await import('../src/services/ai/client.js');
+  const originalFetch = globalThis.fetch;
+
+  const encoder = new TextEncoder();
+  const mockChunks = [
+    'data: {"choices":[{"delta":{"role":"assistant","reasoning_content":"Analyzing design system"}}]}\n\n',
+    'data: {"choices":[{"delta":{"content":"<!DOCTYPE "}}]}\n\n',
+    'data: {"choices":[{"delta":{"content":"html>\\n<h1>Pecut AI Live</h1>"}}]}\n\n',
+    'data: [DONE]\n\n'
+  ];
+
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    headers: {
+      get: (header) => (header.toLowerCase() === 'content-type' ? 'text/event-stream; charset=utf-8' : null)
+    },
+    body: new ReadableStream({
+      start(controller) {
+        for (const c of mockChunks) {
+          controller.enqueue(encoder.encode(c));
+        }
+        controller.close();
+      }
+    })
+  });
+
+  const streamedDeltas = [];
+  try {
+    const res = await streamChat({
+      messages: [{ role: 'user', content: 'Generate page' }],
+      overrideConfig: {
+        provider: 'ninerouter',
+        baseUrl: 'http://localhost:20128/v1',
+        model: 'VibeCoding'
+      }
+    }, (chunk) => {
+      streamedDeltas.push(chunk);
+    });
+
+    assert.ok(streamedDeltas.length >= 2, 'Must receive multiple progressive chunks');
+    assert.equal(res.reasoning, 'Analyzing design system');
+    assert.equal(res.text, '<!DOCTYPE html>\n<h1>Pecut AI Live</h1>');
+    assert.equal(res.isReasoningOnly, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('streamChat parses inline <think> tags split across stream chunks cleanly', async () => {
+  const { streamChat } = await import('../src/services/ai/client.js');
+  const originalFetch = globalThis.fetch;
+
+  const encoder = new TextEncoder();
+  const mockChunks = [
+    'data: {"choices":[{"delta":{"content":"<think>Step 1: Check requirements"}}]}\n\n',
+    'data: {"choices":[{"delta":{"content":" and build nav</think><div>Navbar</div>"}}]}\n\n',
+    'data: [DONE]\n\n'
+  ];
+
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    headers: {
+      get: (header) => (header.toLowerCase() === 'content-type' ? 'text/event-stream' : null)
+    },
+    body: new ReadableStream({
+      start(controller) {
+        for (const c of mockChunks) {
+          controller.enqueue(encoder.encode(c));
+        }
+        controller.close();
+      }
+    })
+  });
+
+  try {
+    const res = await streamChat({
+      messages: [{ role: 'user', content: 'Design navbar' }],
+      overrideConfig: {
+        provider: 'openrouter',
+        apiKey: 'sk-test',
+        model: 'ernie-5.5-flash-preview'
+      }
+    });
+
+    assert.equal(res.reasoning, 'Step 1: Check requirements and build nav');
+    assert.equal(res.text, '<div>Navbar</div>');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('completeChat delegates to streamChat when onChunk callback is provided', async () => {
+  const { completeChat } = await import('../src/services/ai/client.js');
+  const originalFetch = globalThis.fetch;
+
+  const encoder = new TextEncoder();
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    headers: {
+      get: (header) => (header.toLowerCase() === 'content-type' ? 'text/event-stream' : null)
+    },
+    body: new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"Continuous streaming"}}]}\n\n'));
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      }
+    })
+  });
+
+  let calledWithChunk = false;
+  try {
+    const res = await completeChat({
+      messages: [{ role: 'user', content: 'Stream test' }],
+      overrideConfig: {
+        provider: 'openrouter',
+        apiKey: 'sk-test',
+        model: 'ernie-5.5-flash-preview'
+      },
+      onChunk: (chunk) => {
+        calledWithChunk = true;
+      }
+    });
+
+    assert.equal(calledWithChunk, true);
+    assert.equal(res.text, 'Continuous streaming');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

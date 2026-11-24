@@ -241,9 +241,50 @@ export async function handleProxyRequest(req, res) {
       }
     }
 
-    const responseText = await upstreamRes.text();
     const contentType = upstreamRes.headers.get('content-type') || 'application/json';
 
+    // Support real-time Server-Sent Events (SSE) streaming
+    if (upstreamRes.status >= 200 && upstreamRes.status < 300 && contentType.includes('text/event-stream')) {
+      res.writeHead(upstreamRes.status, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'X-Accel-Buffering': 'no'
+      });
+
+      if (upstreamRes.body && typeof upstreamRes.body.getReader === 'function') {
+        const reader = upstreamRes.body.getReader();
+        const onReqClose = () => {
+          try { reader.cancel(); } catch (_) {}
+        };
+        if (typeof req.on === 'function') req.on('close', onReqClose);
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (typeof res.write === 'function') res.write(value);
+            if (typeof res.flush === 'function') res.flush();
+          }
+        } finally {
+          if (typeof req.off === 'function') {
+            req.off('close', onReqClose);
+          } else if (typeof req.removeListener === 'function') {
+            req.removeListener('close', onReqClose);
+          }
+          res.end();
+        }
+        return;
+      }
+
+      if (upstreamRes.body && typeof upstreamRes.body.pipe === 'function') {
+        upstreamRes.body.pipe(res);
+        return;
+      }
+    }
+
+    const responseText = await upstreamRes.text();
     res.writeHead(upstreamRes.status, {
       'Content-Type': contentType,
       'Access-Control-Allow-Origin': '*'
